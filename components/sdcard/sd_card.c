@@ -97,11 +97,11 @@ int sc_card_init(void)
             ESP_LOGE(TAG, "Failed to initialize the card (%s). "
                 "Make sure SD card lines have pull-up resistors in place.", esp_err_to_name(ret));
         }
-        return;
+        return ESP_FAIL;
     }
     // Card has been initialized, print its properties
     sdmmc_card_print_info(stdout, card);
-    return 0;
+    return ESP_OK;
 }
 
 int sd_card_uninit(void)

@@ -1,8 +1,10 @@
 #include "lcd.h"
+
+#include "esp_log.h"
+
 #include "font.h"
 
-#define SPI
-
+static char tag[] = "lcd";
 _lcd_info lcd_info;
 
 //背景色，画笔色
@@ -10,10 +12,13 @@ uint16_t lcd_back_color = BLACK;
 uint16_t lcd_point_color = WHITE;
 
 spi_device_handle_t spi_lcd;
+spi_device_handle_t spi_sd;
 //uint16_t char_map[320*240];//显示缓存
 
 #define SPI_BUF_LEN 512
 
+
+void spi_pre_transfer_callback(spi_transaction_t *t);
 /**
  * these are base function for transfering on spi.
  * hardward config: spi & gpio.
@@ -63,6 +68,15 @@ int spi_init(void)
     //Attach the LCD to the SPI bus
     ret = spi_bus_add_device(HSPI_HOST, &devcfg, &spi_lcd);
     ESP_ERROR_CHECK(ret);
+    
+    // spi_device_interface_config_t sd_devcfg={
+    //     .clock_speed_hz = 20000000,				// Initial clock out at 8 MHz
+    //     .mode = 0,								// SPI mode 0
+    //     .spics_io_num = 13,				// set SPI CS pin
+    //     .queue_size = SPI_BUF_LEN,              //We want to be able to queue 7 transactions at a time
+    // };
+    // ret = spi_bus_add_device(HSPI_HOST, &sd_devcfg, &spi_sd);
+    // ESP_ERROR_CHECK(ret);
     return ESP_OK;
 }
 
@@ -158,9 +172,13 @@ void lcd_fast_write_data16(uint16_t* data ,uint32_t len)
 
 void lcd_fast_write_color(uint16_t color ,uint32_t len)
 {
-    uint32_t i,k;
+    uint32_t i;
     uint8_t *data8 = (uint8_t *)malloc(2 * len);
-    k = len*2 / SPI_BUF_LEN;
+
+    if (!data8) {
+        ESP_LOGE("LCD", "ERR, len=%d", len);
+        return;
+    }
     for (i = 0; i < len; i++) {
         data8[2*i] = color >> 8;//高位
         data8[2*i + 1] = color; //低位
@@ -353,7 +371,7 @@ uint16_t LCD_ReadPoint(uint16_t x,uint16_t y)
 
     LCD_RAM = lcd_read_data16();//第一次为假读
     LCD_RAM = lcd_read_data16();
-    printf("point date4:0x%x\n",LCD_RAM);   
+    ESP_LOGI(tag, "point date4:0x%x\n",LCD_RAM);   
 
     if(LCD_RAM)r=0;							//dummy Read	     
     r=LCD_RAM;  		  						//实际坐标颜色
@@ -373,6 +391,7 @@ void lcd_delay(int ms)
 int lcd_init(void)
 {  
     if (spi_init() < 0) {
+        ESP_LOGE(tag, "init spi failed");
         return -1;
     }
     LCD_BL_RESET();
@@ -486,6 +505,7 @@ int lcd_init(void)
     lcd_set_scan_dir(L2R_U2D);	//默认扫描方向
     lcd_clear(lcd_back_color);
     LCD_BL_SET();
+    ESP_LOGI(tag, "LCD init ok!\n");
 
     return 0;
 }

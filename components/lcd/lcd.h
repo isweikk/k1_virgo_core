@@ -35,14 +35,14 @@ typedef struct {
 
 extern _lcd_info lcd_info;	//管理LCD重要参数
 //IO连接  
-#define PIN_NUM_MISO 4 		// SPI MISO
-#define PIN_NUM_MOSI 2		// SPI MOSI
+#define PIN_NUM_MISO 2 		// SPI MISO
+#define PIN_NUM_MOSI 15		// SPI MOSI
 #define PIN_NUM_CLK  14		// SPI CLOCK pin
-#define PIN_NUM_CS   0		// Display CS pin
+#define PIN_NUM_CS   12		// Display CS pin
 
-#define PIN_NUM_DC   15		// Display command/data pin
-#define PIN_NUM_RST  13  	// GPIO used for RESET control
-#define PIN_NUM_BCKL  12    // GPIO used for backlight control
+#define PIN_NUM_DC   13		// Display command/data pin
+#define PIN_NUM_RST  16  	// GPIO used for RESET control
+#define PIN_NUM_BCKL  16    // GPIO used for backlight control
 
 // #define PIN_NUM_TCS   0	  // Touch screen CS pin
 // #define PIN_NUM_TIRQ   0	  // Touch screen IRQ pin
@@ -53,8 +53,8 @@ extern _lcd_info lcd_info;	//管理LCD重要参数
 #define LCD_DC_SET() gpio_set_level(PIN_NUM_DC, 1)
 #define LCD_DC_RESET() gpio_set_level(PIN_NUM_DC, 0)
 
-#define LCD_BL_SET() gpio_set_level(PIN_NUM_BCKL, 1)
-#define LCD_BL_RESET() gpio_set_level(PIN_NUM_BCKL, 0)
+#define LCD_BL_SET() //gpio_set_level(PIN_NUM_BCKL, 1)
+#define LCD_BL_RESET() //gpio_set_level(PIN_NUM_BCKL, 0)
 
 
 
@@ -89,7 +89,7 @@ void lcd_show_string(uint16_t x, uint16_t y, uint16_t width, uint16_t height, ui
 
  
 //void showhanzi(unsigned int x,unsigned int y,unsigned char index);
-void showhanzi(unsigned int x,unsigned int y,char *p,uint8_t size);
+void showhanzi(uint16_t x, uint16_t y, char *p, uint8_t size)	;
 void showimage(uint16_t x,uint16_t y); //显示40*40图片
 
 //画笔颜色

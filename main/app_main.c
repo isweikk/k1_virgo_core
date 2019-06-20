@@ -27,8 +27,8 @@
 #include "font.h"
 // #include "touch.h"
 
-
-static void http_server_task(void);
+static void web_camera_task(void);
+static void display_task(void *prm);
 static void handle_grayscale_pgm(http_context_t http_ctx, void* ctx);
 static void handle_rgb_bmp(http_context_t http_ctx, void* ctx);
 static void handle_rgb_bmp_stream(http_context_t http_ctx, void* ctx);
@@ -64,13 +64,16 @@ void app_main()
         ESP_ERROR_CHECK( nvs_flash_erase() );
         ESP_ERROR_CHECK( nvs_flash_init() );
     }
-    sc_card_init();
+    //sc_card_init();
     
-//    databuf = (char *) malloc(BUF_SIZE);
-    xTaskCreate(display_task, "display_task", 1500, NULL, 10, NULL);
-    xTaskCreate(wifi_task, "wifi_task", 2048, NULL, 11, NULL);
-    camera_start();
-    http_server_start();
+    err = xTaskCreate(display_task, "display_task", 2048, NULL, 10, NULL);
+    if (err != pdPASS) {
+        ESP_LOGE(TAG, "display_task create failed");
+    }
+    //lcd_init();
+    //wifi_task();
+    //xTaskCreate(wifi_task, "wifi_task", 2048, NULL, 11, NULL);
+    //web_camera_task();
     //TODO, USART task
 
     ESP_LOGI(TAG, "Free heap: %u", xPortGetFreeHeapSize());
@@ -78,7 +81,7 @@ void app_main()
 
 }
 
-static void camera_start(void)
+static void web_camera_task(void)
 {
     camera_config_t camera_config = {
         .ledc_channel = LEDC_CHANNEL_0,
@@ -102,7 +105,7 @@ static void camera_start(void)
     };
 
     camera_model_t camera_model;
-    err = camera_probe(&camera_config, &camera_model);
+    esp_err_t err = camera_probe(&camera_config, &camera_model);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Camera probe failed with error 0x%x", err);
         return;
@@ -131,10 +134,7 @@ static void camera_start(void)
         ESP_LOGE(TAG, "Camera init failed with error 0x%x", err);
         return;
     }
-}
 
-static void http_server_start(void)
-{
     http_server_t server;
     http_server_options_t http_options = HTTP_SERVER_OPTIONS_DEFAULT();
     ESP_ERROR_CHECK( http_server_start(&http_options, &server) );
@@ -157,10 +157,11 @@ static void http_server_start(void)
     }
 }
 
-static void display_task()
+static void display_task(void *prm)
 {
     int i = 0;
 
+    ESP_LOGI("DISP", "TEST display");
     if (lcd_init() < 0) {
         ESP_LOGE(TAG, "lcd_init failed!");
     }
@@ -173,7 +174,7 @@ static void display_task()
             //lcd_show_string(0,0,40,16,16," red ");
             break;
 
-            case 1:lcd_clear(GREEN);lcd_set_back(WHITE);lcd_set_point = (BLACK);
+            case 1:lcd_clear(GREEN);lcd_set_back(WHITE);lcd_set_point(BLACK);
             //lcd_show_string(0,0,40,16,16,"green");
             break;
 
@@ -359,7 +360,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
         case SYSTEM_EVENT_STA_GOT_IP:
             xEventGroupSetBits(s_wifi_event_group, CONNECTED_BIT);
             s_ip_addr = event->event_info.got_ip.ip_info.ip;
-            ESP_LOGI(TAG, "got ip:%s", s_ip_addr);
+            ESP_LOGI(TAG, "got ip:%s", ip4addr_ntoa(&s_ip_addr));
             break;
         case SYSTEM_EVENT_AP_STACONNECTED:
             ESP_LOGI(TAG, "station:"MACSTR" join, AID=%d",
@@ -394,12 +395,12 @@ static void wifi_init_softap(void)
         .ap = {
             .ssid = CONFIG_WIFI_AP_SSID,
             .ssid_len = strlen(CONFIG_WIFI_AP_SSID),
-            .password = CONFIG_WIFI_AP_PASS,
-            .max_connection = CONFIG_MAX_STA_CONN,
+            .password = CONFIG_WIFI_AP_PASSWORD,
+            .max_connection = CONFIG_WIFI_MAX_STA_CONN,
             .authmode = WIFI_AUTH_WPA_WPA2_PSK
         },
     };
-    if (strlen(EXAMPLE_ESP_WIFI_AP_PASS) == 0) {
+    if (strlen(CONFIG_WIFI_AP_PASSWORD) == 0) {
         wifi_config.ap.authmode = WIFI_AUTH_OPEN;
     }
 
@@ -408,7 +409,7 @@ static void wifi_init_softap(void)
     ESP_ERROR_CHECK(esp_wifi_start());
 
     ESP_LOGI(TAG, "wifi_init_softap finished.SSID:%s password:%s",
-             CONFIG_WIFI_AP_SSID, CONFIG_WIFI_AP_PASS);
+             CONFIG_WIFI_AP_SSID, CONFIG_WIFI_AP_PASSWORD);
 }
 
 static void wifi_init_sta(void)
