@@ -1,0 +1,15 @@
+menu "LCD Configuration"
+
+choice LCD_TYPE
+	prompt "LCD module type"
+	default LCD_TYPE_ST7789V
+	help
+		The type of LCD on the evaluation board.
+
+config LCD_TYPE_ST7789V
+	bool "ST7789V"
+config LCD_TYPE_ILI9341
+	bool "ILI9341"
+endchoice
+
+endmenu
