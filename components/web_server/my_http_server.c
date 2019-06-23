@@ -34,8 +34,9 @@
 #include "lwip/api.h"
 
 #include "http_parser.h"
+#include "http_server.h"
 
-#define HTTP_PARSE_BUF_MAX_LEN 256
+#define HTTP_PARSE_BUF_MAX_LEN 1024
 
 typedef enum {
     HTTP_PARSING_URI,                //!< HTTP_PARSING_URI
@@ -395,6 +396,18 @@ esp_err_t http_request_get_data(http_context_t ctx, const char** out_data_ptr, s
     return ESP_OK;
 }
 
+const char* http_request_get_form_value(http_context_t http_ctx, const char* name)
+{
+    http_header_t* buf;
+
+    SLIST_FOREACH(buf, &http_ctx->request_args, list_entry) {
+        if (strcmp(buf->name, name) == 0) {
+            ESP_LOGD("test", "find it");
+            return buf->value;
+        }
+    }
+    return NULL;
+}
 static void form_data_handler_cb(http_context_t http_ctx, void* ctx)
 {
     http_form_handler_t* form_ctx = (http_form_handler_t*) ctx;

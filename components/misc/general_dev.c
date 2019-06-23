@@ -11,7 +11,7 @@
 #include "driver/ledc.h"
 #include "esp_err.h"
 
-#include "led.h"
+#include "general_dev.h"
 static bool light_state = true;
 //void led_init() {
 //	gpio_pad_select_gpio(LED_GPIO);
@@ -22,9 +22,14 @@ static bool light_state = true;
 #define LEDC_LS_MODE           LEDC_LOW_SPEED_MODE
 #define LED_GPIO 4
 #define LEDC_TEST_DUTY 			300
-	ledc_channel_config_t ledc_channel = { .channel = LEDC_CHANNEL_1, .duty = 0,
-				.gpio_num = LED_GPIO, .speed_mode = LEDC_LS_MODE, .timer_sel =
-						LEDC_LS_TIMER };
+
+ledc_channel_config_t ledc_channel = { 
+	.channel = LEDC_CHANNEL_1, 
+	.duty = 0,
+	.gpio_num = LED_GPIO, 
+	.speed_mode = LEDC_LS_MODE, 
+	.timer_sel = LEDC_LS_TIMER 
+};
 void led_init() {
 	/*
 	 * Prepare and set configuration of timers

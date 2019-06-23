@@ -5,10 +5,13 @@
  *      Author: ai-thinker
  */
 
-#ifndef MAIN_LED_H_
-#define MAIN_LED_H_
+#ifndef _GENERAL_DEV_H_
+#define _GENERAL_DEV_H_
+
+
 void led_init() ;
 void led_open();
 void led_close();
 bool get_light_state(void) ;
+
 #endif /* MAIN_LED_H_ */

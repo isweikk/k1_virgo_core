@@ -16,12 +16,15 @@
 #include "esp_err.h"
 #include "nvs_flash.h"
 #include "driver/gpio.h"
+#include "esp_http_client.h"
 //user
 #include "sd_card.h"
+#include "flash_opt.h"
 #include "camera.h"
 #include "my_http_server.h"
+#include "server_html.h"
 #include "bitmap.h"
-#include "led.h"
+#include "general_dev.h"
 #include "qr_recoginize.h"
 #include "lcd.h"
 #include "font.h"
@@ -34,12 +37,15 @@ static void handle_rgb_bmp(http_context_t http_ctx, void* ctx);
 static void handle_rgb_bmp_stream(http_context_t http_ctx, void* ctx);
 static void handle_jpg(http_context_t http_ctx, void* ctx);
 static void handle_jpg_stream(http_context_t http_ctx, void* ctx);
+
 static esp_err_t event_handler(void *ctx, system_event_t *event);
 static void wifi_init_sta(void);
 static void wifi_init_softap(void);
 static void wifi_task(void);
+static void handle_homepage(http_context_t http_ctx, void* ctx);
+static void handle_command(http_context_t http_ctx, void* ctx);
 
-static const char* TAG = "camera_demo";
+static const char* TAG = "main";
 
 static const char* STREAM_CONTENT_TYPE =
         "multipart/x-mixed-replace; boundary=123456789000000000000987654321";
@@ -51,8 +57,8 @@ static const int CONNECTED_BIT = BIT0;
 static ip4_addr_t s_ip_addr;
 static camera_pixelformat_t s_pixel_format;
 
-#define CAMERA_PIXEL_FORMAT CAMERA_PF_GRAYSCALE
-#define CAMERA_FRAME_SIZE CAMERA_FS_QQVGA
+#define CAMERA_PIXEL_FORMAT CAMERA_PF_JPEG
+#define CAMERA_FRAME_SIZE CAMERA_FS_VGA
 
 
 void app_main()
@@ -65,15 +71,19 @@ void app_main()
         ESP_ERROR_CHECK( nvs_flash_init() );
     }
     //sc_card_init();
-    
-    err = xTaskCreate(display_task, "display_task", 2048, NULL, 10, NULL);
-    if (err != pdPASS) {
-        ESP_LOGE(TAG, "display_task create failed");
+    if (storage_flash_init() < 0) {
+        ESP_ERROR_CHECK(storage_flash_init());
     }
-    //lcd_init();
-    //wifi_task();
-    //xTaskCreate(wifi_task, "wifi_task", 2048, NULL, 11, NULL);
-    //web_camera_task();
+    led_init();
+    
+    // err = xTaskCreate(display_task, "display_task", 2048, NULL, 10, NULL);
+    // if (err != pdPASS) {
+    //     ESP_LOGE(TAG, "display_task create failed");
+    // }
+
+    wifi_task();
+    web_camera_task();
+
     //TODO, USART task
 
     ESP_LOGI(TAG, "Free heap: %u", xPortGetFreeHeapSize());
@@ -155,6 +165,11 @@ static void web_camera_task(void)
         ESP_ERROR_CHECK( http_register_handler(server, "/jpg_stream", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_jpg_stream, NULL) );
         ESP_LOGI(TAG, "Open http://" IPSTR "/jpg_stream for multipart/x-mixed-replace stream of JPEGs", IP2STR(&s_ip_addr));
     }
+    //other services
+    ESP_ERROR_CHECK( http_register_form_handler(server, "/", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_homepage, NULL) );
+    ESP_LOGI(TAG, "Open http://" IPSTR " for homepage", IP2STR(&s_ip_addr));
+    ESP_ERROR_CHECK( http_register_form_handler(server, "/cmd", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_command, NULL) );
+    ESP_LOGI(TAG, "Open http://" IPSTR "/cmd for controling the led ...", IP2STR(&s_ip_addr));
 }
 
 static void display_task(void *prm)
@@ -350,6 +365,54 @@ static void handle_jpg_stream(http_context_t http_ctx, void* ctx)
     led_close();
 }
 
+static void handle_homepage(http_context_t http_ctx, void* ctx)
+{
+    //char test[] = "Welcome to my house!<br /> I am K2 Pico, My dad is developing now!<br /> Waiting for a surprise!";
+    char resp_str[1024];
+
+    strcpy(resp_str, loginIndex);
+    size_t response_size = strlen(resp_str);
+    ESP_LOGD(TAG, "test response:length=%d", response_size);
+    http_response_begin(http_ctx, 200, "text/html;charset=UTF-8", response_size);
+    http_buffer_t tmp_header = { .data = &resp_str};
+    http_response_write(http_ctx, &tmp_header);
+
+    write_frame(http_ctx);
+    http_response_end(http_ctx);
+}
+
+static void handle_command(http_context_t http_ctx, void* ctx)
+{
+    //get the command
+    char cmd_stat = 0;
+    char *param_str = NULL;
+
+    if ((param_str = http_request_get_form_value(http_ctx, "led0")) != NULL) {
+        if(get_light_state()) {
+            if (!strcmp(param_str, "on")) {
+                test_spiffs_write();
+                led_open();
+            } else {
+                test_spiffs_read();
+                led_close();
+            }
+        }
+        cmd_stat = 1;
+    }
+    char resp_str[64] = "do command: ";
+    if (cmd_stat) {
+        strcat(resp_str, "success!");
+    } else {
+        strcat(resp_str, "failed, you may input a wrong word.");
+    }
+    size_t response_size = strlen(resp_str);
+    http_response_begin(http_ctx, 200, "text/html;charset=UTF-8", response_size);
+    http_buffer_t tmp_header = { .data = &resp_str};
+    http_response_write(http_ctx, &tmp_header);
+
+    write_frame(http_ctx);
+    http_response_end(http_ctx);
+}
 
 static esp_err_t event_handler(void *ctx, system_event_t *event)
 {
@@ -446,3 +509,44 @@ static void wifi_task(void)
     wifi_init_sta();
 #endif /*CONFIG_WIFI_MODE_STA*/
 }
+
+/**
+ *  ota download
+ */
+/*
+static void http_perform_as_stream_reader()
+{
+    char *buffer = malloc(MAX_HTTP_RECV_BUFFER + 1);
+    if (buffer == NULL) {
+        ESP_LOGE(TAG, "Cannot malloc http receive buffer");
+        return;
+    }
+    esp_http_client_config_t config = {
+        .url = "http://httpbin.org/get",
+        .event_handler = _http_event_handler,
+    };
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    esp_err_t err;
+    if ((err = esp_http_client_open(client, 0)) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to open HTTP connection: %s", esp_err_to_name(err));
+        free(buffer);
+        return;
+    }
+    int content_length =  esp_http_client_fetch_headers(client);
+    int total_read_len = 0, read_len;
+    if (total_read_len < content_length && content_length <= MAX_HTTP_RECV_BUFFER) {
+        read_len = esp_http_client_read(client, buffer, content_length);
+        if (read_len <= 0) {
+            ESP_LOGE(TAG, "Error read data");
+        }
+        buffer[read_len] = 0;
+        ESP_LOGD(TAG, "read_len = %d", read_len);
+    }
+    ESP_LOGI(TAG, "HTTP Stream reader Status = %d, content_length = %d",
+                    esp_http_client_get_status_code(client),
+                    esp_http_client_get_content_length(client));
+    esp_http_client_close(client);
+    esp_http_client_cleanup(client);
+    free(buffer);
+}
+*/
