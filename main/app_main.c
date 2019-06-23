@@ -44,6 +44,7 @@ static void wifi_init_softap(void);
 static void wifi_task(void);
 static void handle_homepage(http_context_t http_ctx, void* ctx);
 static void handle_command(http_context_t http_ctx, void* ctx);
+static void handle_upgrade_soft(http_context_t http_ctx, void* ctx);
 
 static const char* TAG = "main";
 
@@ -170,6 +171,8 @@ static void web_camera_task(void)
     ESP_LOGI(TAG, "Open http://" IPSTR " for homepage", IP2STR(&s_ip_addr));
     ESP_ERROR_CHECK( http_register_form_handler(server, "/cmd", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_command, NULL) );
     ESP_LOGI(TAG, "Open http://" IPSTR "/cmd for controling the led ...", IP2STR(&s_ip_addr));
+    ESP_ERROR_CHECK( http_register_form_handler(server, "/serverIndex", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_upgrade_soft, NULL) );
+
 }
 
 static void display_task(void *prm)
@@ -406,6 +409,21 @@ static void handle_command(http_context_t http_ctx, void* ctx)
         strcat(resp_str, "failed, you may input a wrong word.");
     }
     size_t response_size = strlen(resp_str);
+    http_response_begin(http_ctx, 200, "text/html;charset=UTF-8", response_size);
+    http_buffer_t tmp_header = { .data = &resp_str};
+    http_response_write(http_ctx, &tmp_header);
+
+    write_frame(http_ctx);
+    http_response_end(http_ctx);
+}
+
+static void handle_upgrade_soft(http_context_t http_ctx, void* ctx)
+{
+    char resp_str[1024];
+
+    strcpy(resp_str, serverIndex);
+    size_t response_size = strlen(resp_str);
+    ESP_LOGD(TAG, "test response:length=%d", response_size);
     http_response_begin(http_ctx, 200, "text/html;charset=UTF-8", response_size);
     http_buffer_t tmp_header = { .data = &resp_str};
     http_response_write(http_ctx, &tmp_header);
