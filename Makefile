@@ -3,7 +3,7 @@
 # project subdirectory.
 #
 
-PROJECT_NAME := k2_pico_core
+PROJECT_NAME := k2_virgo_core
 
 include $(IDF_PATH)/make/project.mk
 

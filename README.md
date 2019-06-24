@@ -1,4 +1,4 @@
-# jianjie
-the project is a robot, its code k2, and its name is pico, means very small.
+# Brief
+- The project is a robot, Its named K2, and nickname is Virgo.
 
 # 

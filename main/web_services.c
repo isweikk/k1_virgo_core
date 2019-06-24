@@ -1,3 +1,12 @@
+/*
+ * @Descripttion: 
+ * @version: v1.0.0
+ * @Author: Kevin
+ * @Email: kkcoding@qq.com
+ * @Date: 2019-06-24 11:49:29
+ * @LastEditors: Kevin
+ * @LastEditTime: 2019-06-24 12:39:24
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,7 +55,7 @@ static void handle_homepage(http_context_t http_ctx, void* ctx);
 static void handle_command(http_context_t http_ctx, void* ctx);
 static void handle_upgrade_soft(http_context_t http_ctx, void* ctx);
 
-static const char* TAG = "main";
+static const char* TAG = "services";
 
 static const char* STREAM_CONTENT_TYPE =
         "multipart/x-mixed-replace; boundary=123456789000000000000987654321";
@@ -56,115 +65,112 @@ static const char* STREAM_BOUNDARY = "--123456789000000000000987654321";
 EventGroupHandle_t s_wifi_event_group;
 static const int CONNECTED_BIT = BIT0;
 static ip4_addr_t s_ip_addr;
-static camera_pixelformat_t s_pixel_format;
 
+//camera config
 #define CAMERA_PIXEL_FORMAT CAMERA_PF_JPEG
 #define CAMERA_FRAME_SIZE CAMERA_FS_VGA
 
+static camera_config_t *camera_config = NULL;
+static int camera_status = false;   //status of camera. 0=not actived, 1= actived.
 
-void app_main()
+
+/**
+ * @brief: 
+ * @param {type} 
+ * @return: 
+ */
+int services_camera_init(void)
 {
-    esp_log_level_set("wifi", ESP_LOG_WARN);
-    esp_log_level_set("gpio", ESP_LOG_WARN);
-    esp_err_t err = nvs_flash_init();
-    if (err != ESP_OK) {
-        ESP_ERROR_CHECK( nvs_flash_erase() );
-        ESP_ERROR_CHECK( nvs_flash_init() );
+    camera_config = (camera_config_t*)malloc(sizeof(camera_config_t));
+    if (!camera_config) {
+        ESP_LOGE(TAG, "camera start failed!");
+        return ESP_FAIL;
     }
-    //sc_card_init();
-    if (storage_flash_init() < 0) {
-        ESP_ERROR_CHECK(storage_flash_init());
-    }
-    led_init();
-    
-    // err = xTaskCreate(display_task, "display_task", 2048, NULL, 10, NULL);
-    // if (err != pdPASS) {
-    //     ESP_LOGE(TAG, "display_task create failed");
-    // }
-
-    wifi_task();
-    web_camera_task();
-
-    //TODO, USART task
-
-    ESP_LOGI(TAG, "Free heap: %u", xPortGetFreeHeapSize());
-    ESP_LOGI(TAG, "Camera demo ready");
-
-}
-
-static void web_camera_task(void)
-{
-    camera_config_t camera_config = {
-        .ledc_channel = LEDC_CHANNEL_0,
-        .ledc_timer = LEDC_TIMER_0,
-        .pin_d0 = CONFIG_D0,
-        .pin_d1 = CONFIG_D1,
-        .pin_d2 = CONFIG_D2,
-        .pin_d3 = CONFIG_D3,
-        .pin_d4 = CONFIG_D4,
-        .pin_d5 = CONFIG_D5,
-        .pin_d6 = CONFIG_D6,
-        .pin_d7 = CONFIG_D7,
-        .pin_xclk = CONFIG_XCLK,
-        .pin_pclk = CONFIG_PCLK,
-        .pin_vsync = CONFIG_VSYNC,
-        .pin_href = CONFIG_HREF,
-        .pin_sscb_sda = CONFIG_SDA,
-        .pin_sscb_scl = CONFIG_SCL,
-        .pin_reset = CONFIG_RESET,
-        .xclk_freq_hz = CONFIG_XCLK_FREQ,
-    };
+    camera_config->ledc_channel = LEDC_CHANNEL_0;
+    camera_config->ledc_timer = LEDC_TIMER_0;
+    camera_config->pin_d0 = CONFIG_D0;
+    camera_config->pin_d1 = CONFIG_D1;
+    camera_config->pin_d2 = CONFIG_D2;
+    camera_config->pin_d3 = CONFIG_D3;
+    camera_config->pin_d4 = CONFIG_D4;
+    camera_config->pin_d5 = CONFIG_D5;
+    camera_config->pin_d6 = CONFIG_D6;
+    camera_config->pin_d7 = CONFIG_D7;
+    camera_config->pin_xclk = CONFIG_XCLK;
+    camera_config->pin_pclk = CONFIG_PCLK;
+    camera_config->pin_vsync = CONFIG_VSYNC;
+    camera_config->pin_href = CONFIG_HREF;
+    camera_config->pin_sscb_sda = CONFIG_SDA;
+    camera_config->pin_sscb_scl = CONFIG_SCL;
+    camera_config->pin_reset = CONFIG_RESET;
+    camera_config->xclk_freq_hz = CONFIG_XCLK_FREQ;
 
     camera_model_t camera_model;
-    esp_err_t err = camera_probe(&camera_config, &camera_model);
+    esp_err_t err = camera_probe(camera_config, &camera_model);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Camera probe failed with error 0x%x", err);
-        return;
+        free(camera_config);
+        return ESP_FAIL;
     }
 
     if (camera_model == CAMERA_OV7725) {
-        s_pixel_format = CAMERA_PIXEL_FORMAT;
-        camera_config.frame_size = CAMERA_FRAME_SIZE;
+        camera_config->pixel_format = CAMERA_PIXEL_FORMAT;
+        camera_config->frame_size = CAMERA_FRAME_SIZE;
         ESP_LOGI(TAG, "Detected OV7725 camera, using %s bitmap format",
-                CAMERA_PIXEL_FORMAT == CAMERA_PF_GRAYSCALE ?
-                        "grayscale" : "RGB565");
+            CAMERA_PIXEL_FORMAT == CAMERA_PF_GRAYSCALE ? "grayscale" : "RGB565");
     } else if (camera_model == CAMERA_OV2640) {
+        camera_config->pixel_format = CAMERA_PIXEL_FORMAT;
+        camera_config->frame_size = CAMERA_FRAME_SIZE;
+        if (camera_config->pixel_format == CAMERA_PF_JPEG) {
+            camera_config->jpeg_quality = 15;
+        }
         ESP_LOGI(TAG, "Detected OV2640 camera, using JPEG format");
-        s_pixel_format = CAMERA_PIXEL_FORMAT;
-        camera_config.frame_size = CAMERA_FRAME_SIZE;
-        if (s_pixel_format == CAMERA_PF_JPEG)
-        camera_config.jpeg_quality = 15;
     } else {
         ESP_LOGE(TAG, "Camera not supported");
-        return;
+        free(camera_config);
+        return ESP_FAIL;
     }
 
-    camera_config.pixel_format = s_pixel_format;
     err = camera_init(&camera_config);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Camera init failed with error 0x%x", err);
-        return;
+        free(camera_config);
+        return ESP_FAIL;
     }
+    camera_status = true;
+    return ESP_OK;
+}
 
+int services_camera_deinit(void)
+{
+    camera_status = false;
+    free(camera_config);
+    return ESP_OK;
+}
+
+int services_http_init(void)
+{
     http_server_t server;
     http_server_options_t http_options = HTTP_SERVER_OPTIONS_DEFAULT();
     ESP_ERROR_CHECK( http_server_start(&http_options, &server) );
 
-    if (s_pixel_format == CAMERA_PF_GRAYSCALE) {
-        ESP_ERROR_CHECK( http_register_handler(server, "/pgm", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_grayscale_pgm, &camera_config) );
-        ESP_LOGI(TAG, "Open http://" IPSTR "/pgm for a single image/x-portable-graymap image", IP2STR(&s_ip_addr));
-    }
-    if (s_pixel_format == CAMERA_PF_RGB565) {
-        ESP_ERROR_CHECK( http_register_handler(server, "/bmp", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_rgb_bmp, NULL) );
-        ESP_LOGI(TAG, "Open http://" IPSTR "/bmp for single image/bitmap image", IP2STR(&s_ip_addr));
-        ESP_ERROR_CHECK( http_register_handler(server, "/bmp_stream", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_rgb_bmp_stream, NULL) );
-        ESP_LOGI(TAG, "Open http://" IPSTR "/bmp_stream for multipart/x-mixed-replace stream of bitmaps", IP2STR(&s_ip_addr));
-    }
-    if (s_pixel_format == CAMERA_PF_JPEG) {
-        ESP_ERROR_CHECK( http_register_handler(server, "/jpg", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_jpg, NULL) );
-        ESP_LOGI(TAG, "Open http://" IPSTR "/jpg for single image/jpg image", IP2STR(&s_ip_addr));
-        ESP_ERROR_CHECK( http_register_handler(server, "/jpg_stream", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_jpg_stream, NULL) );
-        ESP_LOGI(TAG, "Open http://" IPSTR "/jpg_stream for multipart/x-mixed-replace stream of JPEGs", IP2STR(&s_ip_addr));
+    if (camera_status) {
+        if (camera_config->pixel_format == CAMERA_PF_GRAYSCALE) {
+            ESP_ERROR_CHECK( http_register_handler(server, "/pgm", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_grayscale_pgm, &camera_config) );
+            ESP_LOGI(TAG, "Open http://" IPSTR "/pgm for a single image/x-portable-graymap image", IP2STR(&s_ip_addr));
+        }
+        if (camera_config->pixel_format == CAMERA_PF_RGB565) {
+            ESP_ERROR_CHECK( http_register_handler(server, "/bmp", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_rgb_bmp, NULL) );
+            ESP_LOGI(TAG, "Open http://" IPSTR "/bmp for single image/bitmap image", IP2STR(&s_ip_addr));
+            ESP_ERROR_CHECK( http_register_handler(server, "/bmp_stream", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_rgb_bmp_stream, NULL) );
+            ESP_LOGI(TAG, "Open http://" IPSTR "/bmp_stream for multipart/x-mixed-replace stream of bitmaps", IP2STR(&s_ip_addr));
+        }
+        if (camera_config->pixel_format == CAMERA_PF_JPEG) {
+            ESP_ERROR_CHECK( http_register_handler(server, "/jpg", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_jpg, NULL) );
+            ESP_LOGI(TAG, "Open http://" IPSTR "/jpg for single image/jpg image", IP2STR(&s_ip_addr));
+            ESP_ERROR_CHECK( http_register_handler(server, "/jpg_stream", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_jpg_stream, NULL) );
+            ESP_LOGI(TAG, "Open http://" IPSTR "/jpg_stream for multipart/x-mixed-replace stream of JPEGs", IP2STR(&s_ip_addr));
+        }
     }
     //other services
     ESP_ERROR_CHECK( http_register_form_handler(server, "/", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_homepage, NULL) );

@@ -1,4 +1,4 @@
-menu "Pico robot Configuration"
+menu "K2 robot Configuration"
 
 config WIFI_MODE_STA
 	bool "set default to sta mode"
@@ -20,7 +20,7 @@ config WIFI_STA_PASSWORD
 
 config WIFI_AP_SSID
     string "WiFi SSID @ AP MODE"
-    default "Pico-K2"
+    default "K2Virgo"
     help
         SSID (network name) for the demo to connect to.
 
