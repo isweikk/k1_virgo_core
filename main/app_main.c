@@ -20,47 +20,25 @@
 //user
 #include "sd_card.h"
 #include "flash_opt.h"
-#include "camera.h"
-#include "my_http_server.h"
-#include "server_html.h"
-#include "bitmap.h"
+#include "web_services.h"
 #include "general_dev.h"
-#include "qr_recoginize.h"
 #include "lcd.h"
 #include "font.h"
+#include "oled.h"
+#include "fonts.h"
 // #include "touch.h"
 
-static void web_camera_task(void);
 static void display_task(void *prm);
-static void handle_grayscale_pgm(http_context_t http_ctx, void* ctx);
-static void handle_rgb_bmp(http_context_t http_ctx, void* ctx);
-static void handle_rgb_bmp_stream(http_context_t http_ctx, void* ctx);
-static void handle_jpg(http_context_t http_ctx, void* ctx);
-static void handle_jpg_stream(http_context_t http_ctx, void* ctx);
-
 static esp_err_t event_handler(void *ctx, system_event_t *event);
 static void wifi_init_sta(void);
 static void wifi_init_softap(void);
 static void wifi_task(void);
-static void handle_homepage(http_context_t http_ctx, void* ctx);
-static void handle_command(http_context_t http_ctx, void* ctx);
-static void handle_upgrade_soft(http_context_t http_ctx, void* ctx);
 
 static const char* TAG = "main";
-
-static const char* STREAM_CONTENT_TYPE =
-        "multipart/x-mixed-replace; boundary=123456789000000000000987654321";
-
-static const char* STREAM_BOUNDARY = "--123456789000000000000987654321";
 
 EventGroupHandle_t s_wifi_event_group;
 static const int CONNECTED_BIT = BIT0;
 static ip4_addr_t s_ip_addr;
-static camera_pixelformat_t s_pixel_format;
-
-#define CAMERA_PIXEL_FORMAT CAMERA_PF_JPEG
-#define CAMERA_FRAME_SIZE CAMERA_FS_VGA
-
 
 void app_main()
 {
@@ -76,102 +54,24 @@ void app_main()
         ESP_ERROR_CHECK(storage_flash_init());
     }
     led_init();
-    
+    oled_init();
+    oled_show_str(0,0,  "HX ESP32 I2C", &Font_7x10, 1);
+    oled_show_str(0,15, "oled example", &Font_7x10, 1);
+    oled_show_str(0,30, "QQ:671139854", &Font_7x10, 1);
+    oled_show_str(0,45, "All On And Clear",&Font_7x10,1);
     // err = xTaskCreate(display_task, "display_task", 2048, NULL, 10, NULL);
     // if (err != pdPASS) {
     //     ESP_LOGE(TAG, "display_task create failed");
     // }
 
     wifi_task();
-    web_camera_task();
+    services_camera_init();
+    services_http_init();
 
     //TODO, USART task
 
     ESP_LOGI(TAG, "Free heap: %u", xPortGetFreeHeapSize());
     ESP_LOGI(TAG, "Camera demo ready");
-
-}
-
-static void web_camera_task(void)
-{
-    camera_config_t camera_config = {
-        .ledc_channel = LEDC_CHANNEL_0,
-        .ledc_timer = LEDC_TIMER_0,
-        .pin_d0 = CONFIG_D0,
-        .pin_d1 = CONFIG_D1,
-        .pin_d2 = CONFIG_D2,
-        .pin_d3 = CONFIG_D3,
-        .pin_d4 = CONFIG_D4,
-        .pin_d5 = CONFIG_D5,
-        .pin_d6 = CONFIG_D6,
-        .pin_d7 = CONFIG_D7,
-        .pin_xclk = CONFIG_XCLK,
-        .pin_pclk = CONFIG_PCLK,
-        .pin_vsync = CONFIG_VSYNC,
-        .pin_href = CONFIG_HREF,
-        .pin_sscb_sda = CONFIG_SDA,
-        .pin_sscb_scl = CONFIG_SCL,
-        .pin_reset = CONFIG_RESET,
-        .xclk_freq_hz = CONFIG_XCLK_FREQ,
-    };
-
-    camera_model_t camera_model;
-    esp_err_t err = camera_probe(&camera_config, &camera_model);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Camera probe failed with error 0x%x", err);
-        return;
-    }
-
-    if (camera_model == CAMERA_OV7725) {
-        s_pixel_format = CAMERA_PIXEL_FORMAT;
-        camera_config.frame_size = CAMERA_FRAME_SIZE;
-        ESP_LOGI(TAG, "Detected OV7725 camera, using %s bitmap format",
-                CAMERA_PIXEL_FORMAT == CAMERA_PF_GRAYSCALE ?
-                        "grayscale" : "RGB565");
-    } else if (camera_model == CAMERA_OV2640) {
-        ESP_LOGI(TAG, "Detected OV2640 camera, using JPEG format");
-        s_pixel_format = CAMERA_PIXEL_FORMAT;
-        camera_config.frame_size = CAMERA_FRAME_SIZE;
-        if (s_pixel_format == CAMERA_PF_JPEG)
-        camera_config.jpeg_quality = 15;
-    } else {
-        ESP_LOGE(TAG, "Camera not supported");
-        return;
-    }
-
-    camera_config.pixel_format = s_pixel_format;
-    err = camera_init(&camera_config);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Camera init failed with error 0x%x", err);
-        return;
-    }
-
-    http_server_t server;
-    http_server_options_t http_options = HTTP_SERVER_OPTIONS_DEFAULT();
-    ESP_ERROR_CHECK( http_server_start(&http_options, &server) );
-
-    if (s_pixel_format == CAMERA_PF_GRAYSCALE) {
-        ESP_ERROR_CHECK( http_register_handler(server, "/pgm", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_grayscale_pgm, &camera_config) );
-        ESP_LOGI(TAG, "Open http://" IPSTR "/pgm for a single image/x-portable-graymap image", IP2STR(&s_ip_addr));
-    }
-    if (s_pixel_format == CAMERA_PF_RGB565) {
-        ESP_ERROR_CHECK( http_register_handler(server, "/bmp", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_rgb_bmp, NULL) );
-        ESP_LOGI(TAG, "Open http://" IPSTR "/bmp for single image/bitmap image", IP2STR(&s_ip_addr));
-        ESP_ERROR_CHECK( http_register_handler(server, "/bmp_stream", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_rgb_bmp_stream, NULL) );
-        ESP_LOGI(TAG, "Open http://" IPSTR "/bmp_stream for multipart/x-mixed-replace stream of bitmaps", IP2STR(&s_ip_addr));
-    }
-    if (s_pixel_format == CAMERA_PF_JPEG) {
-        ESP_ERROR_CHECK( http_register_handler(server, "/jpg", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_jpg, NULL) );
-        ESP_LOGI(TAG, "Open http://" IPSTR "/jpg for single image/jpg image", IP2STR(&s_ip_addr));
-        ESP_ERROR_CHECK( http_register_handler(server, "/jpg_stream", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_jpg_stream, NULL) );
-        ESP_LOGI(TAG, "Open http://" IPSTR "/jpg_stream for multipart/x-mixed-replace stream of JPEGs", IP2STR(&s_ip_addr));
-    }
-    //other services
-    ESP_ERROR_CHECK( http_register_form_handler(server, "/", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_homepage, NULL) );
-    ESP_LOGI(TAG, "Open http://" IPSTR " for homepage", IP2STR(&s_ip_addr));
-    ESP_ERROR_CHECK( http_register_form_handler(server, "/cmd", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_command, NULL) );
-    ESP_LOGI(TAG, "Open http://" IPSTR "/cmd for controling the led ...", IP2STR(&s_ip_addr));
-    ESP_ERROR_CHECK( http_register_form_handler(server, "/serverIndex", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_upgrade_soft, NULL) );
 
 }
 
@@ -210,225 +110,6 @@ static void display_task(void *prm)
         vTaskDelay(1000 / portTICK_RATE_MS);
         ESP_LOGI(TAG, "display continue\n");
     } 
-}
-
-static esp_err_t write_frame(http_context_t http_ctx)
-{
-    http_buffer_t fb_data = {
-            .data = camera_get_fb(),
-            .size = camera_get_data_size(),
-            .data_is_persistent = true
-    };
-    return http_response_write(http_ctx, &fb_data);
-}
-
-static void handle_grayscale_pgm(http_context_t http_ctx, void* ctx)
-{
-    esp_err_t err = camera_run();
-    if (err != ESP_OK) {
-        ESP_LOGD(TAG, "Camera capture failed with error = %d", err);
-        return;
-    }
-    char* pgm_header_str;
-    asprintf(&pgm_header_str, "P5 %d %d %d\n",
-            camera_get_fb_width(), camera_get_fb_height(), 255);
-    if (pgm_header_str == NULL) {
-        return;
-    }
-
-    size_t response_size = strlen(pgm_header_str) + camera_get_data_size();
-    http_response_begin(http_ctx, 200, "image/x-portable-graymap", response_size);
-    http_response_set_header(http_ctx, "Content-disposition", "inline; filename=capture.pgm");
-    http_buffer_t pgm_header = { .data = pgm_header_str };
-    http_response_write(http_ctx, &pgm_header);
-    free(pgm_header_str);
-
-    write_frame(http_ctx);
-    http_response_end(http_ctx);
-    ESP_LOGI(TAG, "Free heap: %u", xPortGetFreeHeapSize());
-#if CONFIG_QR_RECOGNIZE
-    camera_config_t *camera_config = ctx;
-    xTaskCreate(qr_recoginze, "qr_recoginze", 111500, camera_config, 5, NULL);
-#endif
-}
-
-static void handle_rgb_bmp(http_context_t http_ctx, void* ctx)
-{
-    esp_err_t err = camera_run();
-    if (err != ESP_OK) {
-        ESP_LOGD(TAG, "Camera capture failed with error = %d", err);
-        return;
-    }
-
-    bitmap_header_t* header = bmp_create_header(camera_get_fb_width(), camera_get_fb_height());
-    if (header == NULL) {
-        return;
-    }
-
-    http_response_begin(http_ctx, 200, "image/bmp", sizeof(*header) + camera_get_data_size());
-    http_buffer_t bmp_header = {
-            .data = header,
-            .size = sizeof(*header)
-    };
-    http_response_set_header(http_ctx, "Content-disposition", "inline; filename=capture.bmp");
-    http_response_write(http_ctx, &bmp_header);
-    free(header);
-
-    write_frame(http_ctx);
-    http_response_end(http_ctx);
-}
-
-static void handle_jpg(http_context_t http_ctx, void* ctx)
-{
-	if(get_light_state())
-		led_open();
-    esp_err_t err = camera_run();
-    if (err != ESP_OK) {
-        ESP_LOGD(TAG, "Camera capture failed with error = %d", err);
-        return;
-    }
-
-    http_response_begin(http_ctx, 200, "image/jpeg", camera_get_data_size());
-    http_response_set_header(http_ctx, "Content-disposition", "inline; filename=capture.jpg");
-    write_frame(http_ctx);
-    http_response_end(http_ctx);
-    led_close();
-}
-
-
-static void handle_rgb_bmp_stream(http_context_t http_ctx, void* ctx)
-{
-    http_response_begin(http_ctx, 200, STREAM_CONTENT_TYPE, HTTP_RESPONSE_SIZE_UNKNOWN);
-    bitmap_header_t* header = bmp_create_header(camera_get_fb_width(), camera_get_fb_height());
-    if (header == NULL) {
-        return;
-    }
-    http_buffer_t bmp_header = {
-            .data = header,
-            .size = sizeof(*header)
-    };
-
-
-    while (true) {
-        esp_err_t err = camera_run();
-        if (err != ESP_OK) {
-            ESP_LOGD(TAG, "Camera capture failed with error = %d", err);
-            return;
-        }
-
-        err = http_response_begin_multipart(http_ctx, "image/bitmap",
-                camera_get_data_size() + sizeof(*header));
-        if (err != ESP_OK) {
-            break;
-        }
-        err = http_response_write(http_ctx, &bmp_header);
-        if (err != ESP_OK) {
-            break;
-        }
-        err = write_frame(http_ctx);
-        if (err != ESP_OK) {
-            break;
-        }
-        err = http_response_end_multipart(http_ctx, STREAM_BOUNDARY);
-        if (err != ESP_OK) {
-            break;
-        }
-    }
-
-    free(header);
-    http_response_end(http_ctx);
-}
-
-static void handle_jpg_stream(http_context_t http_ctx, void* ctx)
-{
-    http_response_begin(http_ctx, 200, STREAM_CONTENT_TYPE, HTTP_RESPONSE_SIZE_UNKNOWN);
-    if(get_light_state())
-    		led_open();
-    while (true) {
-        esp_err_t err = camera_run();
-        if (err != ESP_OK) {
-            ESP_LOGD(TAG, "Camera capture failed with error = %d", err);
-            return;
-        }
-        err = http_response_begin_multipart(http_ctx, "image/jpg",
-                camera_get_data_size());
-        if (err != ESP_OK) {
-            break;
-        }
-        err = write_frame(http_ctx);
-        if (err != ESP_OK) {
-            break;
-        }
-        err = http_response_end_multipart(http_ctx, STREAM_BOUNDARY);
-        if (err != ESP_OK) {
-            break;
-        }
-    }
-    http_response_end(http_ctx);
-    led_close();
-}
-
-static void handle_homepage(http_context_t http_ctx, void* ctx)
-{
-    char resp_str[1024];
-
-    strcpy(resp_str, loginIndex);
-    size_t response_size = strlen(resp_str);
-    ESP_LOGD(TAG, "test response:length=%d", response_size);
-    http_response_begin(http_ctx, 200, "text/html;charset=UTF-8", response_size);
-    http_buffer_t tmp_header = { .data = &resp_str};
-    http_response_write(http_ctx, &tmp_header);
-
-    write_frame(http_ctx);
-    http_response_end(http_ctx);
-}
-
-static void handle_command(http_context_t http_ctx, void* ctx)
-{
-    //get the command
-    char cmd_stat = 0;
-    char *param_str = NULL;
-
-    if ((param_str = http_request_get_form_value(http_ctx, "led0")) != NULL) {
-        if(get_light_state()) {
-            if (!strcmp(param_str, "on")) {
-                test_spiffs_write();
-                led_open();
-            } else {
-                test_spiffs_read();
-                led_close();
-            }
-        }
-        cmd_stat = 1;
-    }
-    char resp_str[64] = "do command: ";
-    if (cmd_stat) {
-        strcat(resp_str, "success!");
-    } else {
-        strcat(resp_str, "failed, you may input a wrong word.");
-    }
-    size_t response_size = strlen(resp_str);
-    http_response_begin(http_ctx, 200, "text/html;charset=UTF-8", response_size);
-    http_buffer_t tmp_header = { .data = &resp_str};
-    http_response_write(http_ctx, &tmp_header);
-
-    write_frame(http_ctx);
-    http_response_end(http_ctx);
-}
-
-static void handle_upgrade_soft(http_context_t http_ctx, void* ctx)
-{
-    char resp_str[1024];
-
-    strcpy(resp_str, serverIndex);
-    size_t response_size = strlen(resp_str);
-    ESP_LOGD(TAG, "test response:length=%d", response_size);
-    http_response_begin(http_ctx, 200, "text/html;charset=UTF-8", response_size);
-    http_buffer_t tmp_header = { .data = &resp_str};
-    http_response_write(http_ctx, &tmp_header);
-
-    write_frame(http_ctx);
-    http_response_end(http_ctx);
 }
 
 static esp_err_t event_handler(void *ctx, system_event_t *event)

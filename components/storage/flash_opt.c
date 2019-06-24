@@ -28,7 +28,7 @@ int storage_flash_init(void)
     esp_vfs_spiffs_conf_t conf = {
       .base_path = "/spiffs",
       .partition_label = NULL,
-      .max_files = 500,
+      .max_files = 100,
       .format_if_mount_failed = true
     };
     

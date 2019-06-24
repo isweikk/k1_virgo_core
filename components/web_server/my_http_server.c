@@ -360,7 +360,7 @@ static int http_message_done_cb(http_parser* parser)
     return 0;
 }
 
-const char* http_request_get_header(http_context_t ctx, const char* name)
+char* http_request_get_header(http_context_t ctx, const char* name)
 {
     http_header_t* it;
     SLIST_FOREACH(it, &ctx->request_headers, list_entry) {
@@ -376,7 +376,7 @@ int http_request_get_event(http_context_t ctx)
     return ctx->event;
 }
 
-const char* http_request_get_uri(http_context_t ctx)
+char* http_request_get_uri(http_context_t ctx)
 {
     return ctx->uri;
 }
@@ -396,7 +396,7 @@ esp_err_t http_request_get_data(http_context_t ctx, const char** out_data_ptr, s
     return ESP_OK;
 }
 
-const char* http_request_get_form_value(http_context_t http_ctx, const char* name)
+char* http_request_get_form_value(http_context_t http_ctx, const char* name)
 {
     http_header_t* buf;
 

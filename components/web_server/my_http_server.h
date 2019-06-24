@@ -137,7 +137,7 @@ esp_err_t http_register_form_handler(http_server_t server, const char* uri_patte
  * @param name  name of form item
  * @return  pointer to the form item value, valid until the end of request
  */
-const char* http_request_get_form_value(http_context_t http_ctx, const char* name);
+char* http_request_get_form_value(http_context_t http_ctx, const char* name);
 
 /**
  * @brief Get request method
@@ -151,7 +151,7 @@ int http_request_get_method(http_context_t http_ctx);
  * @param http_ctx  context passed to the handler
  * @return pointer to the URI, valid until the end of request
  */
-const char* http_request_get_uri(http_context_t http_ctx);
+char* http_request_get_uri(http_context_t http_ctx);
 
 /**
  * @brief Get request header
@@ -162,7 +162,7 @@ const char* http_request_get_uri(http_context_t http_ctx);
  *    pointer to the value; valid until request callback returns.
  *  - Otherwise, returns NULL
  */
-const char* http_request_get_header(http_context_t ctx, const char* name);
+char* http_request_get_header(http_context_t ctx, const char* name);
 
 /**
  * @brief Get the event which caused a call to the handler

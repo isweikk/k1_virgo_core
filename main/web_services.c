@@ -5,7 +5,7 @@
  * @Email: kkcoding@qq.com
  * @Date: 2019-06-24 11:49:29
  * @LastEditors: Kevin
- * @LastEditTime: 2019-06-24 12:39:24
+ * @LastEditTime: 2019-06-24 23:42:27
  */
 
 #include <stdio.h>
@@ -16,18 +16,13 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
-#include "freertos/event_groups.h"
+//#include "freertos/event_groups.h"
 
 #include "esp_system.h"
-#include "esp_wifi.h"
-#include "esp_event_loop.h"
 #include "esp_log.h"
 #include "esp_err.h"
-#include "nvs_flash.h"
-#include "driver/gpio.h"
 #include "esp_http_client.h"
 //user
-#include "sd_card.h"
 #include "flash_opt.h"
 #include "camera.h"
 #include "my_http_server.h"
@@ -35,22 +30,15 @@
 #include "bitmap.h"
 #include "general_dev.h"
 #include "qr_recoginize.h"
-#include "lcd.h"
-#include "font.h"
+// #include "lcd.h"
+// #include "font.h"
 // #include "touch.h"
 
-static void web_camera_task(void);
-static void display_task(void *prm);
 static void handle_grayscale_pgm(http_context_t http_ctx, void* ctx);
 static void handle_rgb_bmp(http_context_t http_ctx, void* ctx);
 static void handle_rgb_bmp_stream(http_context_t http_ctx, void* ctx);
 static void handle_jpg(http_context_t http_ctx, void* ctx);
 static void handle_jpg_stream(http_context_t http_ctx, void* ctx);
-
-static esp_err_t event_handler(void *ctx, system_event_t *event);
-static void wifi_init_sta(void);
-static void wifi_init_softap(void);
-static void wifi_task(void);
 static void handle_homepage(http_context_t http_ctx, void* ctx);
 static void handle_command(http_context_t http_ctx, void* ctx);
 static void handle_upgrade_soft(http_context_t http_ctx, void* ctx);
@@ -61,10 +49,6 @@ static const char* STREAM_CONTENT_TYPE =
         "multipart/x-mixed-replace; boundary=123456789000000000000987654321";
 
 static const char* STREAM_BOUNDARY = "--123456789000000000000987654321";
-
-EventGroupHandle_t s_wifi_event_group;
-static const int CONNECTED_BIT = BIT0;
-static ip4_addr_t s_ip_addr;
 
 //camera config
 #define CAMERA_PIXEL_FORMAT CAMERA_PF_JPEG
@@ -131,7 +115,7 @@ int services_camera_init(void)
         return ESP_FAIL;
     }
 
-    err = camera_init(&camera_config);
+    err = camera_init(camera_config);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Camera init failed with error 0x%x", err);
         free(camera_config);
@@ -157,65 +141,34 @@ int services_http_init(void)
     if (camera_status) {
         if (camera_config->pixel_format == CAMERA_PF_GRAYSCALE) {
             ESP_ERROR_CHECK( http_register_handler(server, "/pgm", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_grayscale_pgm, &camera_config) );
-            ESP_LOGI(TAG, "Open http://" IPSTR "/pgm for a single image/x-portable-graymap image", IP2STR(&s_ip_addr));
+            ESP_LOGI(TAG, "Open http://ip/pgm for a single image/x-portable-graymap image");
         }
         if (camera_config->pixel_format == CAMERA_PF_RGB565) {
             ESP_ERROR_CHECK( http_register_handler(server, "/bmp", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_rgb_bmp, NULL) );
-            ESP_LOGI(TAG, "Open http://" IPSTR "/bmp for single image/bitmap image", IP2STR(&s_ip_addr));
+            ESP_LOGI(TAG, "Open http://ip/bmp for single image/bitmap image");
             ESP_ERROR_CHECK( http_register_handler(server, "/bmp_stream", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_rgb_bmp_stream, NULL) );
-            ESP_LOGI(TAG, "Open http://" IPSTR "/bmp_stream for multipart/x-mixed-replace stream of bitmaps", IP2STR(&s_ip_addr));
+            ESP_LOGI(TAG, "Open http://ip/bmp_stream for multipart/x-mixed-replace stream of bitmaps");
         }
         if (camera_config->pixel_format == CAMERA_PF_JPEG) {
             ESP_ERROR_CHECK( http_register_handler(server, "/jpg", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_jpg, NULL) );
-            ESP_LOGI(TAG, "Open http://" IPSTR "/jpg for single image/jpg image", IP2STR(&s_ip_addr));
+            ESP_LOGI(TAG, "Open http://ip/jpg for single image/jpg image");
             ESP_ERROR_CHECK( http_register_handler(server, "/jpg_stream", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_jpg_stream, NULL) );
-            ESP_LOGI(TAG, "Open http://" IPSTR "/jpg_stream for multipart/x-mixed-replace stream of JPEGs", IP2STR(&s_ip_addr));
+            ESP_LOGI(TAG, "Open http://ip/jpg_stream for multipart/x-mixed-replace stream of JPEGs");
         }
     }
     //other services
     ESP_ERROR_CHECK( http_register_form_handler(server, "/", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_homepage, NULL) );
-    ESP_LOGI(TAG, "Open http://" IPSTR " for homepage", IP2STR(&s_ip_addr));
+    ESP_LOGI(TAG, "Open http://ip for homepage");
     ESP_ERROR_CHECK( http_register_form_handler(server, "/cmd", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_command, NULL) );
-    ESP_LOGI(TAG, "Open http://" IPSTR "/cmd for controling the led ...", IP2STR(&s_ip_addr));
+    ESP_LOGI(TAG, "Open http://ip/cmd for controling the led ...");
     ESP_ERROR_CHECK( http_register_form_handler(server, "/serverIndex", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_upgrade_soft, NULL) );
-
+    return ESP_OK;
 }
 
-static void display_task(void *prm)
+int services_http_deinit(void)
 {
-    int i = 0;
-
-    ESP_LOGI("DISP", "TEST display");
-    if (lcd_init() < 0) {
-        ESP_LOGE(TAG, "lcd_init failed!");
-    }
-
-    while(1)
-    {
-        switch(i)
-        {
-            case 0:lcd_clear(RED);lcd_set_back(WHITE);lcd_set_point(BLACK);
-            //lcd_show_string(0,0,40,16,16," red ");
-            break;
-
-            case 1:lcd_clear(GREEN);lcd_set_back(WHITE);lcd_set_point(BLACK);
-            //lcd_show_string(0,0,40,16,16,"green");
-            break;
-
-            case 2:lcd_clear(BLUE);lcd_set_back(WHITE);lcd_set_point(BLACK);
-            //lcd_show_string(0,0,40,16,16," blue");
-            break;
-
-            case 3:lcd_clear(WHITE);lcd_set_back(WHITE);lcd_set_point(BLACK);
-            //lcd_show_string(0,0,40,16,16,"white");
-            break;
-        }
-        i++;
-        if(i >= 3) i = 0;
-        //brushed_motor_forward(MCPWM_UNIT_0, MCPWM_TIMER_0, i*30.0);
-        vTaskDelay(1000 / portTICK_RATE_MS);
-        ESP_LOGI(TAG, "display continue\n");
-    } 
+    
+    return ESP_OK;
 }
 
 static esp_err_t write_frame(http_context_t http_ctx)
@@ -349,7 +302,7 @@ static void handle_jpg_stream(http_context_t http_ctx, void* ctx)
 {
     http_response_begin(http_ctx, 200, STREAM_CONTENT_TYPE, HTTP_RESPONSE_SIZE_UNKNOWN);
     if(get_light_state())
-    		led_open();
+    	led_open();
     while (true) {
         esp_err_t err = camera_run();
         if (err != ESP_OK) {
@@ -435,102 +388,6 @@ static void handle_upgrade_soft(http_context_t http_ctx, void* ctx)
 
     write_frame(http_ctx);
     http_response_end(http_ctx);
-}
-
-static esp_err_t event_handler(void *ctx, system_event_t *event)
-{
-    switch (event->event_id) {
-        case SYSTEM_EVENT_STA_START:
-            esp_wifi_connect();
-            break;
-        case SYSTEM_EVENT_STA_GOT_IP:
-            xEventGroupSetBits(s_wifi_event_group, CONNECTED_BIT);
-            s_ip_addr = event->event_info.got_ip.ip_info.ip;
-            ESP_LOGI(TAG, "got ip:%s", ip4addr_ntoa(&s_ip_addr));
-            break;
-        case SYSTEM_EVENT_AP_STACONNECTED:
-            ESP_LOGI(TAG, "station:"MACSTR" join, AID=%d",
-                    MAC2STR(event->event_info.sta_connected.mac),
-                    event->event_info.sta_connected.aid);
-            break;
-        case SYSTEM_EVENT_AP_STADISCONNECTED:
-            ESP_LOGI(TAG, "station:"MACSTR"leave, AID=%d",
-                    MAC2STR(event->event_info.sta_disconnected.mac),
-                    event->event_info.sta_disconnected.aid);
-            break;
-        case SYSTEM_EVENT_STA_DISCONNECTED:
-            esp_wifi_connect();
-            xEventGroupClearBits(s_wifi_event_group, CONNECTED_BIT);
-            break;
-        default:
-            break;
-    }
-    return ESP_OK;
-}
-
-static void wifi_init_softap(void)
-{
-    s_wifi_event_group = xEventGroupCreate();
-
-    tcpip_adapter_init();
-    ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL));
-
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-    wifi_config_t wifi_config = {
-        .ap = {
-            .ssid = CONFIG_WIFI_AP_SSID,
-            .ssid_len = strlen(CONFIG_WIFI_AP_SSID),
-            .password = CONFIG_WIFI_AP_PASSWORD,
-            .max_connection = CONFIG_WIFI_MAX_STA_CONN,
-            .authmode = WIFI_AUTH_WPA_WPA2_PSK
-        },
-    };
-    if (strlen(CONFIG_WIFI_AP_PASSWORD) == 0) {
-        wifi_config.ap.authmode = WIFI_AUTH_OPEN;
-    }
-
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
-    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));
-    ESP_ERROR_CHECK(esp_wifi_start());
-
-    ESP_LOGI(TAG, "wifi_init_softap finished.SSID:%s password:%s",
-             CONFIG_WIFI_AP_SSID, CONFIG_WIFI_AP_PASSWORD);
-}
-
-static void wifi_init_sta(void)
-{
-    tcpip_adapter_init();
-    s_wifi_event_group = xEventGroupCreate();
-    ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL));
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg) );
-//    ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
-    wifi_config_t wifi_config = {
-        .sta = {
-            .ssid = CONFIG_WIFI_STA_SSID,
-            .password = CONFIG_WIFI_STA_PASSWORD,
-        },
-    };
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
-    ESP_ERROR_CHECK(esp_wifi_start());
-    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
-    ESP_LOGI(TAG, "Connecting to \"%s\"", wifi_config.sta.ssid);
-    xEventGroupWaitBits(s_wifi_event_group, CONNECTED_BIT, false, true, portMAX_DELAY);
-    ESP_LOGI(TAG, "Connected");
-}
-
-static void wifi_task(void)
-{
-    
-#ifndef CONFIG_WIFI_MODE_STA
-    ESP_LOGI(TAG, "ESP_WIFI_MODE_AP");
-    wifi_init_softap();
-#else
-    ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
-    wifi_init_sta();
-#endif /*CONFIG_WIFI_MODE_STA*/
 }
 
 /**
