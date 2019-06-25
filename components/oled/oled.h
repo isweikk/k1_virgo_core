@@ -5,7 +5,7 @@
  * @Email: kkcoding@qq.com
  * @Date: 2019-06-24 21:37:48
  * @LastEditors: Kevin
- * @LastEditTime: 2019-06-25 01:18:30
+ * @LastEditTime: 2019-06-25 16:02:16
  */
 
 
@@ -94,6 +94,7 @@ void oled_drawpixel(uint16_t x, uint16_t y, SSD1306_COLOR_t color);
 void oled_set_cursor(uint16_t x, uint16_t y);
 char oled_show_char(uint16_t x, uint16_t y, char ch, FontDef_t* Font, SSD1306_COLOR_t color);
 char oled_show_str(uint16_t x, uint16_t y, char* str, FontDef_t* Font, SSD1306_COLOR_t color);
+void oled_draw_bmp(uint16_t x0, uint16_t y0, uint16_t width, uint16_t height, uint8_t bmp[]);
 
 #endif
 

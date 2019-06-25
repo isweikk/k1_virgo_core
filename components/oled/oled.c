@@ -5,7 +5,7 @@
  * @Email: kkcoding@qq.com
  * @Date: 2019-06-24 21:37:48
  * @LastEditors: Kevin
- * @LastEditTime: 2019-06-25 02:03:38
+ * @LastEditTime: 2019-06-25 15:59:43
  */
 
 // ----------------------------------------------------------------
@@ -15,6 +15,9 @@
 // SCL   接PB8（SCL）
 // SDA   接PB9（SDA）            
 // ----------------------------------------------------------------
+// 0------> X
+//  |
+//  V Y
 //OLED的显存
 //存放格式如下.
 //[0]0 1 2 3 ... 127	
@@ -35,8 +38,8 @@
 static uint8_t oled_buffer[SSD1306_WIDTH * SSD1306_HEIGHT / 8];
 //OLED实时信息
 static SSD1306_t oled;
-//OLED是否正在显示，1显示，0等待
-static bool is_show_str = 0;
+//OLED flush after operation，1=yes，0=no
+static bool do_flush = true;
 
 /**
  * @brief: 
@@ -45,7 +48,6 @@ static bool is_show_str = 0;
  */
 void i2c_init(void)
 {
-    //注释参考sht30之i2c教程
     i2c_config_t conf;
     conf.mode = I2C_MODE_MASTER;
     conf.sda_io_num = I2C_OLED_MASTER_SDA_IO;
@@ -65,7 +67,6 @@ void i2c_init(void)
  */
 int oled_write_cmd(uint8_t command)
 {
-    //注释参考sht30之i2c教程
     int ret;
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     ret = i2c_master_start(cmd);
@@ -89,7 +90,6 @@ int oled_write_cmd(uint8_t command)
  */
 int oled_write_data(uint8_t data)
 {
-    //注释参考sht30之i2c教程
     int ret;
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     ret = i2c_master_start(cmd);
@@ -114,13 +114,12 @@ int oled_write_data(uint8_t data)
  */
 int oled_write_long_data(uint8_t *data,uint16_t len)
 {
-    //注释参考sht30之i2c教程
     int ret;
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     ret = i2c_master_start(cmd);
     ret = i2c_master_write_byte(cmd, OLED_WRITE_ADDR | WRITE_BIT, ACK_CHECK_EN);
     ret = i2c_master_write_byte(cmd, WRITE_DATA, ACK_CHECK_EN);
-    ret = i2c_master_write(cmd, data, len,ACK_CHECK_EN);
+    ret = i2c_master_write(cmd, data, len, ACK_CHECK_EN);
     ret = i2c_master_stop(cmd);
     ret = i2c_master_cmd_begin(I2C_OLED_MASTER_NUM, cmd, 10000 / portTICK_RATE_MS);
     i2c_cmd_link_delete(cmd);
@@ -258,8 +257,7 @@ void oled_goto_cursor(uint16_t x, uint16_t y)
  */
 void oled_draw_pixel(uint16_t x, uint16_t y, SSD1306_COLOR_t color) 
 {
-	if (x >= SSD1306_WIDTH ||
-		y >= SSD1306_HEIGHT) {
+	if (x >= SSD1306_WIDTH || y >= SSD1306_HEIGHT) {
 		return;
 	}
 	if (color == SSD1306_COLOR_WHITE) {
@@ -278,29 +276,41 @@ void oled_draw_pixel(uint16_t x, uint16_t y, SSD1306_COLOR_t color)
  * @param[in]   color 颜色  1显示 0不显示
  * @return: 
  */
-char oled_show_char(uint16_t x, uint16_t y, char ch, FontDef_t* Font, SSD1306_COLOR_t color) 
+char oled_show_char(uint16_t x, uint16_t y, char ch, FontDef_t font, SSD1306_COLOR_t color) 
 {
 	uint32_t i, b, j;
-	if (SSD1306_WIDTH <= (oled.cursor_x + Font->FontWidth)
-        || SSD1306_HEIGHT <= (oled.cursor_y + Font->FontHeight)) {
+	if (SSD1306_WIDTH <= (x + font.width)
+        || SSD1306_HEIGHT <= (y + font.height)) {
 		return 0;
 	}
-	if (0 == is_show_str) {
-        oled_goto_cursor(x,y);
+    oled_goto_cursor(x,y);
+
+    if (font.height <= 8) {
+        for (i = 0; i < font.width; i++) {
+            b = font.data[(ch - ' ') * font.width + i];
+            for (j = 0; j < font.height; j++) {
+                if ((b >> j) & 0x1) {
+                    oled_draw_pixel(oled.cursor_x + i, (oled.cursor_y + j), (SSD1306_COLOR_t) color);
+                } else {
+                    oled_draw_pixel(oled.cursor_x + i, (oled.cursor_y + j), (SSD1306_COLOR_t)!color);
+                }
+            }
+        }
+    } else if (font.height <= 16) {
+        for (i = 0; i < font.width; i++) {
+            b = font.data[(ch - ' ') * font.width * 2 + i];
+            b += font.data[(ch - ' ') * font.width * 2 + font.width + i] << 8;
+            for (j = 0; j < font.height; j++) {
+                if ((b >> j) & 0x1) {
+                    oled_draw_pixel(oled.cursor_x + i, (oled.cursor_y + j), (SSD1306_COLOR_t) color);
+                } else {
+                    oled_draw_pixel(oled.cursor_x + i, (oled.cursor_y + j), (SSD1306_COLOR_t)!color);
+                }
+            }
+        }
     }
 
-	for (i = 0; i < Font->FontHeight; i++) {
-		b = Font->data[(ch - ' ') * Font->FontHeight + i];
-		for (j = 0; j < Font->FontWidth; j++) {
-			if ((b << j) & 0x8000) {
-				oled_draw_pixel(oled.cursor_x + j, (oled.cursor_y + i), (SSD1306_COLOR_t) color);
-			} else {
-				oled_draw_pixel(oled.cursor_x + j, (oled.cursor_y + i), (SSD1306_COLOR_t)!color);
-			}
-		}
-	}
-	oled.cursor_x += Font->FontWidth;
-	if(0 == is_show_str) {
+	if(true == do_flush) {
        oled_update_screen(); 
     }
 	return ch;
@@ -315,20 +325,18 @@ char oled_show_char(uint16_t x, uint16_t y, char ch, FontDef_t* Font, SSD1306_CO
  * @param[in]   color 颜色  1显示 0不显示
  * @return: 
  */
-char oled_show_str(uint16_t x, uint16_t y, char* str, FontDef_t* Font, SSD1306_COLOR_t color) 
+char oled_show_str(uint16_t x, uint16_t y, char* str, FontDef_t font, SSD1306_COLOR_t color) 
 {
-    is_show_str=1;
-    oled_goto_cursor(x,y);
-	while (*str) 
-    {
-		if (oled_show_char(x,y,*str, Font, color) != *str) 
-        {
-            is_show_str=0;
+    do_flush = false;
+	while (*str) {
+		if (oled_show_char(x, y, *str, font, color) != *str) {
+            do_flush = 0;
 			return *str;
 		}
 		str++;
+        x += font.width;
 	}
-    is_show_str=0;
+    do_flush = true;
     oled_update_screen();
 	return *str;
 }
@@ -338,7 +346,36 @@ char oled_show_str(uint16_t x, uint16_t y, char* str, FontDef_t* Font, SSD1306_C
  * @param {type} 
  * @return: 
  */
-void oled_draw_bmp(unsigned char x0, unsigned char y0,unsigned char x1, unsigned char y1,unsigned char bmp[])
+void oled_draw_bmp(uint16_t x0, uint16_t y0, uint16_t width, uint16_t height, uint8_t bmp[])
 { 	
     //TODO
+    uint32_t i, b, j, line = 0, bits = 0;
+	if (SSD1306_WIDTH <= (x0 + width)
+        || SSD1306_HEIGHT <= (y0 + height)) {
+		return 0;
+	}
+    oled_goto_cursor(x0,y0);
+    
+    while(height) {
+        if (height < 8) {
+            bits = height;
+            height = 0;
+        } else {
+            bits = 8;
+            height -= 8;
+        }
+        for (i = 0; i < width; i++) {
+            b = bmp[width * line + i];
+            for (j = 0; j < bits; j++) {
+                if ((b >> j) & 0x1) {
+                    oled_draw_pixel(x0 + i, y0 + j, (SSD1306_COLOR_t) color);
+                } else {
+                    oled_draw_pixel(x0 + i, y0 + j, (SSD1306_COLOR_t)!color);
+                }
+            }
+        }
+        line++;
+        y0 += 8;
+    }
+    oled_update_screen();
 } 
