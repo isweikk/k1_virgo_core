@@ -5,7 +5,7 @@
  * @Email: kkcoding@qq.com
  * @Date: 2019-06-24 21:37:48
  * @LastEditors: Kevin
- * @LastEditTime: 2019-06-25 15:59:43
+ * @LastEditTime: 2019-06-26 01:36:39
  */
 
 // ----------------------------------------------------------------
@@ -368,9 +368,9 @@ void oled_draw_bmp(uint16_t x0, uint16_t y0, uint16_t width, uint16_t height, ui
             b = bmp[width * line + i];
             for (j = 0; j < bits; j++) {
                 if ((b >> j) & 0x1) {
-                    oled_draw_pixel(x0 + i, y0 + j, (SSD1306_COLOR_t) color);
+                    oled_draw_pixel(x0 + i, y0 + j, SSD1306_COLOR_WHITE);
                 } else {
-                    oled_draw_pixel(x0 + i, y0 + j, (SSD1306_COLOR_t)!color);
+                    oled_draw_pixel(x0 + i, y0 + j, SSD1306_COLOR_BLACK);
                 }
             }
         }

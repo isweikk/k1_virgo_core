@@ -40,6 +40,18 @@ EventGroupHandle_t s_wifi_event_group;
 static const int CONNECTED_BIT = BIT0;
 static ip4_addr_t s_ip_addr;
 
+void monitor_task(void *prm)
+{
+    uint32_t free_heap = 0;
+    while(1) {
+        if (free_heap != xPortGetFreeHeapSize()) {
+            free_heap = xPortGetFreeHeapSize();
+            ESP_LOGI(TAG, "Free heap: %u", free_heap);
+        }
+        vTaskDelay(1000 / portTICK_RATE_MS);
+    }
+}
+
 void app_main()
 {
     esp_log_level_set("wifi", ESP_LOG_WARN);
@@ -55,23 +67,22 @@ void app_main()
     }
     led_init();
     oled_init();
-    oled_show_str(0,0,  "HX ESP32 I2C", &Font_7x10, 1);
-    oled_show_str(0,15, "oled example", &Font_7x10, 1);
-    oled_show_str(0,30, "QQ:671139854", &Font_7x10, 1);
-    oled_show_str(0,45, "All On And Clear",&Font_7x10,1);
+    oled_show_str(0,0,  "ESP32 I2C", Font_6x8, 1);
+    oled_show_str(0,15, "oled example", Font_8x16, 1);
+    oled_show_str(0,32, "QQ:671139854", Font_6x8, 1);
+    oled_show_str(0,45, "All On And Clear", Font_7x10,1);
     // err = xTaskCreate(display_task, "display_task", 2048, NULL, 10, NULL);
     // if (err != pdPASS) {
     //     ESP_LOGE(TAG, "display_task create failed");
     // }
-
+    xTaskCreate(monitor_task, "monitor_task", 2048, NULL, 10, NULL);
     wifi_task();
     services_camera_init();
     services_http_init();
 
     //TODO, USART task
 
-    ESP_LOGI(TAG, "Free heap: %u", xPortGetFreeHeapSize());
-    ESP_LOGI(TAG, "Camera demo ready");
+    ESP_LOGI(TAG, "K2 is ready");
 
 }
 

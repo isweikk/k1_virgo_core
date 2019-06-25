@@ -28,8 +28,8 @@ int storage_flash_init(void)
     esp_vfs_spiffs_conf_t conf = {
       .base_path = "/spiffs",
       .partition_label = NULL,
-      .max_files = 100,
-      .format_if_mount_failed = true
+      .max_files = 5,   //同时打开的最大文件数量
+      .format_if_mount_failed = true    //如果初始化失败，则擦除该分区
     };
     
     // Use settings defined above to initialize and mount SPIFFS filesystem.
