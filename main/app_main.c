@@ -28,6 +28,7 @@
 #include "oled.h"
 #include "fonts.h"
 // #include "touch.h"
+#include "audio_api.h"
 
 static void display_task(void *prm);
 static esp_err_t event_handler(void *ctx, system_event_t *event);
@@ -53,6 +54,25 @@ void monitor_task(void *prm)
     }
 }
 
+void test_audio(void)
+{
+    char buf[800];
+    int len = 0;
+    ESP_LOGI(TAG, "Opening file");
+    FILE* f = fopen("/spiffs/alarm-44100-2ch.wav", "r");
+    if (f == NULL) {
+        ESP_LOGE(TAG, "Failed to open file for writing");
+        return;
+    }
+    fseek(f, 0x2c, SEEK_SET);
+    while((len = fread(buf, 1, 800, f)) > 0) {
+        ESP_LOGE(TAG, "len=%d:,%02x,%02x", len, buf[0], buf[1]);
+        I2S_Write(buf, len);
+
+    }
+    fclose(f);
+    ESP_LOGI(TAG, "test audio over");
+}
 void app_main()
 {
     esp_log_level_set("wifi", ESP_LOG_WARN);
@@ -67,22 +87,26 @@ void app_main()
         ESP_ERROR_CHECK(storage_flash_init());
     }
     led_init();
-    oled_init();
-    oled_show_str(0,0,  "ESP32 I2C", Font_6x8, 1);
-    oled_show_str(0,15, "oled example", Font_8x16, 1);
-    oled_show_str(0,32, "QQ:671139854", Font_6x8, 1);
-    oled_show_str(0,45, "All On And Clear", Font_7x10,1);
+    // oled_init();
+    // oled_show_str(0,0,  "ESP32 I2C", Font_6x8, 1);
+    // oled_show_str(0,15, "oled example", Font_8x16, 1);
+    // oled_show_str(0,32, "QQ:671139854", Font_6x8, 1);
+    // oled_show_str(0,45, "All On And Clear", Font_7x10,1);
     // err = xTaskCreate(display_task, "display_task", 2048, NULL, 10, NULL);
     // if (err != pdPASS) {
     //     ESP_LOGE(TAG, "display_task create failed");
     // }
-    xTaskCreate(monitor_task, "monitor_task", 2048, NULL, 10, NULL);
-    wifi_task();
-    if (start_server_core() == NULL) {
-        ESP_LOGE(TAG, "Server start failed!");
-    }
+    ESP_LOGI(TAG, "TEST");
+    I2S_Init(I2S_MODE_TX, I2S_BITS_PER_SAMPLE_16BIT);
+    ESP_LOGI(TAG, "TEST");
 
-    xTaskCreate(&ota_upgrade_task, "ota_upgrade_task", 8192, NULL, 5, NULL);
+    xTaskCreate(monitor_task, "monitor_task", 2048, NULL, 10, NULL);
+    // wifi_task();
+    // if (start_server_core() == NULL) {
+    //     ESP_LOGE(TAG, "Server start failed!");
+    // }
+    test_audio();
+    //xTaskCreate(&ota_upgrade_task, "ota_upgrade_task", 8192, NULL, 5, NULL);
 
     //TODO, USART task
 

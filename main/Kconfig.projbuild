@@ -39,7 +39,7 @@ config WIFI_MAX_STA_CONN
 menu "OTA Configuration"
 config OTA_FIRMWARE_UPG_URL
         string "Firmware Upgrade URL"
-        default "https://192.168.2.106:8070/hello-world.bin"
+        default "https://192.168.1.221:8070/hello-world.bin"
         help
             URL of server which hosts the firmware image.
 

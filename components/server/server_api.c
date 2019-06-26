@@ -5,13 +5,18 @@
  * @Email: kkcoding@qq.com
  * @Date: 2019-06-26 16:04:10
  * @LastEditors: Kevin
- * @LastEditTime: 2019-06-26 18:52:04
+ * @LastEditTime: 2019-06-27 00:24:55
  */
+#include "server_api.h"
 
 #include <esp_log.h>
 #include <esp_system.h>
 #include <sys/param.h>
 #include <esp_http_server.h>
+#include "esp_event_loop.h"
+
+#include "web_services.h"
+#include "file_services.h"
 
 /* A simple example that demonstrates how to create GET and POST
  * handlers for the web server.
@@ -205,8 +210,8 @@ static esp_err_t ctrl_put_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-static const httpd_uri_t ctrl = {
-    .uri       = "/ctrl",
+static const httpd_uri_t ctrl1 = {
+    .uri       = "/ctrl1",
     .method    = HTTP_PUT,
     .handler   = ctrl_put_handler,
     .user_ctx  = NULL
@@ -224,20 +229,20 @@ httpd_handle_t start_server_core(void)
 
     // Start the httpd server
     ESP_LOGI(TAG, "Starting server on port: '%d'", config.server_port);
-    if (httpd_start(&server, &config) == ESP_OK) {
+    if (httpd_start(&server, &config) != ESP_OK) {
         ESP_LOGE(TAG, "Error starting server!");
         return NULL;
     }
 
     //register web services
-    web_services_register(server)
+    web_services_register(server);
     //register file services
     file_services_register(server, "/spiffs");
     
     // Set URI handlers
     httpd_register_uri_handler(server, &hello);
     httpd_register_uri_handler(server, &echo);
-    //httpd_register_uri_handler(server, &ctrl);
+    httpd_register_uri_handler(server, &ctrl1);
     ESP_LOGI(TAG, "Registering all services ok!");
 
     return server;

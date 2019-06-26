@@ -7,3 +7,4 @@
 # please read the SDK documents if you need to do this.
 #
 
+COMPONENT_EMBED_FILES += ca_cert.pem

@@ -1,4 +1,4 @@
-#include "I2S.h"
+#include "audio_api.h"
 
 void I2S_Init(i2s_mode_t MODE, i2s_bits_per_sample_t BPS) {
   i2s_config_t i2s_config = {
@@ -9,7 +9,8 @@ void I2S_Init(i2s_mode_t MODE, i2s_bits_per_sample_t BPS) {
     .communication_format = (i2s_comm_format_t)(I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB),
     .intr_alloc_flags = 0,
     .dma_buf_count = 16,
-    .dma_buf_len = 60
+    .dma_buf_len = 60,
+    .use_apll = false
   };
   i2s_pin_config_t pin_config;
   pin_config.bck_io_num = PIN_I2S_BCLK;
@@ -32,7 +33,8 @@ int I2S_Read(char* data, int numData) {
 }
 
 void I2S_Write(char* data, int numData) {
-    i2s_write_bytes(I2S_NUM_0, (const char *)data, numData, portMAX_DELAY);
+    size_t tmp = 0;
+      i2s_write(I2S_NUM_0, (const char *)data, numData, &tmp, portMAX_DELAY);
 }
 
 // const int record_time = 60;  // second

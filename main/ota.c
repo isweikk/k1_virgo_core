@@ -18,7 +18,6 @@
 #include "esp_flash_partitions.h"
 #include "esp_partition.h"
 #include "driver/gpio.h"
-#include "protocol_examples_common.h"
 
 
 #define BUFFSIZE 1024

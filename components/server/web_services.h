@@ -8,9 +8,9 @@
 #ifndef _WEB_SERVICES_H_
 #define _WEB_SERVICES_H_
 
-int services_camera_init(void);
-int services_camera_deinit(void);
-int services_http_init(void);
-int services_http_deinit(void);
+#include <esp_http_server.h>
+
+
+int web_services_register(httpd_handle_t server);
 
 #endif /* _WEB_SERVICES_H_ */

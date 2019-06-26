@@ -1,13 +1,16 @@
-#include <Arduino.h>
+
+#ifndef _AUDIO_API_H_
+#define _AUDIO_API_H_
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/i2s.h"
 #include "esp_system.h"
 #define SAMPLE_RATE (44100)
-#define PIN_I2S_BCLK 26  //sck26
-#define PIN_I2S_LRC 22  //ws22
-#define PIN_I2S_DIN 34  //sd34
-#define PIN_I2S_DOUT 25  //25
+#define PIN_I2S_BCLK 2  //sck26
+#define PIN_I2S_LRC 14  //ws22
+#define PIN_I2S_DIN 15  //sd34
+#define PIN_I2S_DOUT 13  //25
 
 // This I2S specification : 
 //  -   LRC high is channel 2 (right).
@@ -36,3 +39,5 @@ int I2S_Read(char* data, int numData);
 /// @param data: pointer to buffer
 /// @param numData: buffer size
 void I2S_Write(char* data, int numData);
+
+#endif /*_AUDIO_API_H_ */
