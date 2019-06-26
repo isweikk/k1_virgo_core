@@ -1,4 +1,4 @@
-menu "LCD Configuration"
+menu "K2 LCD Configuration"
 
 choice LCD_TYPE
 	prompt "LCD module type"

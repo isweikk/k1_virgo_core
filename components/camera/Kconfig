@@ -1,4 +1,4 @@
-menu "Camera configuration"
+menu "K2 Camera configuration"
 
 config ENABLE_TEST_PATTERN
 	bool "Enable test pattern on camera output"

@@ -5,7 +5,7 @@
  * @Email: kkcoding@qq.com
  * @Date: 2019-06-24 11:49:29
  * @LastEditors: Kevin
- * @LastEditTime: 2019-06-24 23:42:27
+ * @LastEditTime: 2019-06-26 19:03:30
  */
 
 #include <stdio.h>
@@ -16,12 +16,12 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
-//#include "freertos/event_groups.h"
 
 #include "esp_system.h"
 #include "esp_log.h"
 #include "esp_err.h"
 #include "esp_http_client.h"
+#include "esp_http_server.h"
 //user
 #include "flash_opt.h"
 #include "camera.h"
@@ -41,9 +41,8 @@ static void handle_jpg(http_context_t http_ctx, void* ctx);
 static void handle_jpg_stream(http_context_t http_ctx, void* ctx);
 static void handle_homepage(http_context_t http_ctx, void* ctx);
 static void handle_command(http_context_t http_ctx, void* ctx);
-static void handle_upgrade_soft(http_context_t http_ctx, void* ctx);
 
-static const char* TAG = "services";
+static const char* TAG = "web_server";
 
 static const char* STREAM_CONTENT_TYPE =
         "multipart/x-mixed-replace; boundary=123456789000000000000987654321";
@@ -132,36 +131,91 @@ int services_camera_deinit(void)
     return ESP_OK;
 }
 
-int services_http_init(void)
+/* An HTTP POST handler */
+static esp_err_t video_get_handler(httpd_req_t *req)
 {
-    http_server_t server;
-    http_server_options_t http_options = HTTP_SERVER_OPTIONS_DEFAULT();
-    ESP_ERROR_CHECK( http_server_start(&http_options, &server) );
+    char video[64];
+    int response_err = 0;
 
-    if (camera_status) {
-        if (camera_config->pixel_format == CAMERA_PF_GRAYSCALE) {
-            ESP_ERROR_CHECK( http_register_handler(server, "/pgm", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_grayscale_pgm, &camera_config) );
-            ESP_LOGI(TAG, "Open http://ip/pgm for a single image/x-portable-graymap image");
-        }
-        if (camera_config->pixel_format == CAMERA_PF_RGB565) {
-            ESP_ERROR_CHECK( http_register_handler(server, "/bmp", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_rgb_bmp, NULL) );
-            ESP_LOGI(TAG, "Open http://ip/bmp for single image/bitmap image");
-            ESP_ERROR_CHECK( http_register_handler(server, "/bmp_stream", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_rgb_bmp_stream, NULL) );
-            ESP_LOGI(TAG, "Open http://ip/bmp_stream for multipart/x-mixed-replace stream of bitmaps");
-        }
-        if (camera_config->pixel_format == CAMERA_PF_JPEG) {
-            ESP_ERROR_CHECK( http_register_handler(server, "/jpg", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_jpg, NULL) );
-            ESP_LOGI(TAG, "Open http://ip/jpg for single image/jpg image");
-            ESP_ERROR_CHECK( http_register_handler(server, "/jpg_stream", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_jpg_stream, NULL) );
-            ESP_LOGI(TAG, "Open http://ip/jpg_stream for multipart/x-mixed-replace stream of JPEGs");
-        }
+    if (!camera_status) {
+        httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "camera is out line");
+        return ESP_FAIL;
     }
-    //other services
-    ESP_ERROR_CHECK( http_register_form_handler(server, "/", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_homepage, NULL) );
-    ESP_LOGI(TAG, "Open http://ip for homepage");
-    ESP_ERROR_CHECK( http_register_form_handler(server, "/cmd", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_command, NULL) );
-    ESP_LOGI(TAG, "Open http://ip/cmd for controling the led ...");
-    ESP_ERROR_CHECK( http_register_form_handler(server, "/serverIndex", HTTP_GET, HTTP_HANDLE_RESPONSE, &handle_upgrade_soft, NULL) );
+    switch (camera_config->pixer_format) {
+    case CAMERA_PF_GRAYSCALE: {
+        if (strcmp(req->uri, "/video/pgm")) {
+            handle_grayscale_pgm(req, NULL);
+        } else {
+            response_err = 1;
+        }
+        break;
+    }
+    case CAMERA_PF_RGB565: {
+        if (strcmp(req->uri, "/video/bmp")) {
+            handle_rgb_bmp(req, NULL);
+        } else if (strcmp(req->uri, "/video/bmp_stream")) {
+            handle_rgb_bmp_stream(req, NULL);
+        } else {
+            response_err = 1;
+        }
+        break;
+    }
+    case CAMERA_PF_JPEG: {
+        if (strcmp(req->uri, "/video/jpg")) {
+            handle_jpg(req, NULL);
+        } else if (strcmp(req->uri, "/video/jpg_stream")) {
+            handle_jpg_stream(req, NULL);
+        } else {
+            response_err = 1;
+        }
+        break;
+    }
+    default:
+        break;
+    }
+
+    if (response_err) {
+        httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "does not support");
+    } else {
+        // End response
+        httpd_resp_send_chunk(req, NULL, 0);
+    }
+    return ESP_OK;
+}
+
+int services_web_register(http_server_t server)
+{
+    if (services_camera_init() == ESP_OK) {
+        /* URI handler for uploading files to server */
+        httpd_uri_t video_play = {
+            .uri       = "/video/*",   // Match all URIs of type /video/{video-type}
+            .method    = HTTP_GET,
+            .handler   = video_get_handler,
+            .user_ctx  = NULL
+        };
+        httpd_register_uri_handler(server, &video_play);
+    } else {
+        ESP_LOGW(TAG, "register web camera failed");
+    }
+
+    /* URI handler for controlling device */
+    httpd_uri_t ctrl = {
+        .uri       = "/ctrl",   
+        .method    = HTTP_POST,
+        .handler   = ctrl_post_handler,
+        .user_ctx  = NULL
+    };
+    httpd_register_uri_handler(server, &ctrl);
+
+    /* URI handler for login the server */
+    httpd_uri_t login = {
+        .uri       = "/",   
+        .method    = HTTP_POST,
+        .handler   = login_handler,
+        .user_ctx  = NULL
+    };
+    httpd_register_uri_handler(server, &login);
+
     return ESP_OK;
 }
 
@@ -174,9 +228,9 @@ int services_http_deinit(void)
 static esp_err_t write_frame(http_context_t http_ctx)
 {
     http_buffer_t fb_data = {
-            .data = camera_get_fb(),
-            .size = camera_get_data_size(),
-            .data_is_persistent = true
+        .data = camera_get_fb(),
+        .size = camera_get_data_size(),
+        .data_is_persistent = true
     };
     return http_response_write(http_ctx, &fb_data);
 }
@@ -342,19 +396,22 @@ static void handle_homepage(http_context_t http_ctx, void* ctx)
     http_response_end(http_ctx);
 }
 
-static void handle_command(http_context_t http_ctx, void* ctx)
+static void ctrl_post_handler(httpd_req_t *req)
 {
     //get the command
     char cmd_stat = 0;
-    char *param_str = NULL;
+    char param_str[256], key_val[64];
 
-    if ((param_str = http_request_get_form_value(http_ctx, "led0")) != NULL) {
+    if (httpd_req_get_url_query_str(req, param_str, 256) != ESP_OK) {
+        //no arguments, return the ctrl page.
+        httpd_resp_send_chunk(req, NULL, 0);
+        return;
+    }
+    if (httpd_query_key_value(param_str, "led0", key_val, 64)) == ESP_OK) {
         if(get_light_state()) {
-            if (!strcmp(param_str, "on")) {
-                test_spiffs_write();
+            if (!strcmp(key_val, "on")) {
                 led_open();
             } else {
-                test_spiffs_read();
                 led_close();
             }
         }
@@ -366,67 +423,5 @@ static void handle_command(http_context_t http_ctx, void* ctx)
     } else {
         strcat(resp_str, "failed, you may input a wrong word.");
     }
-    size_t response_size = strlen(resp_str);
-    http_response_begin(http_ctx, 200, "text/html;charset=UTF-8", response_size);
-    http_buffer_t tmp_header = { .data = &resp_str};
-    http_response_write(http_ctx, &tmp_header);
-
-    write_frame(http_ctx);
-    http_response_end(http_ctx);
+    httpd_resp_send(req, resp_str, strlen(resp_str));
 }
-
-static void handle_upgrade_soft(http_context_t http_ctx, void* ctx)
-{
-    char resp_str[1024];
-
-    strcpy(resp_str, serverIndex);
-    size_t response_size = strlen(resp_str);
-    ESP_LOGD(TAG, "test response:length=%d", response_size);
-    http_response_begin(http_ctx, 200, "text/html;charset=UTF-8", response_size);
-    http_buffer_t tmp_header = { .data = &resp_str};
-    http_response_write(http_ctx, &tmp_header);
-
-    write_frame(http_ctx);
-    http_response_end(http_ctx);
-}
-
-/**
- *  ota download
- */
-/*
-static void http_perform_as_stream_reader()
-{
-    char *buffer = malloc(MAX_HTTP_RECV_BUFFER + 1);
-    if (buffer == NULL) {
-        ESP_LOGE(TAG, "Cannot malloc http receive buffer");
-        return;
-    }
-    esp_http_client_config_t config = {
-        .url = "http://httpbin.org/get",
-        .event_handler = _http_event_handler,
-    };
-    esp_http_client_handle_t client = esp_http_client_init(&config);
-    esp_err_t err;
-    if ((err = esp_http_client_open(client, 0)) != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to open HTTP connection: %s", esp_err_to_name(err));
-        free(buffer);
-        return;
-    }
-    int content_length =  esp_http_client_fetch_headers(client);
-    int total_read_len = 0, read_len;
-    if (total_read_len < content_length && content_length <= MAX_HTTP_RECV_BUFFER) {
-        read_len = esp_http_client_read(client, buffer, content_length);
-        if (read_len <= 0) {
-            ESP_LOGE(TAG, "Error read data");
-        }
-        buffer[read_len] = 0;
-        ESP_LOGD(TAG, "read_len = %d", read_len);
-    }
-    ESP_LOGI(TAG, "HTTP Stream reader Status = %d, content_length = %d",
-                    esp_http_client_get_status_code(client),
-                    esp_http_client_get_content_length(client));
-    esp_http_client_close(client);
-    esp_http_client_cleanup(client);
-    free(buffer);
-}
-*/

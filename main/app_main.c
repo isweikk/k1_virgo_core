@@ -20,7 +20,8 @@
 //user
 #include "sd_card.h"
 #include "flash_opt.h"
-#include "web_services.h"
+#include "server_api.h"
+#include "ota.h"
 #include "general_dev.h"
 #include "lcd.h"
 #include "font.h"
@@ -77,8 +78,11 @@ void app_main()
     // }
     xTaskCreate(monitor_task, "monitor_task", 2048, NULL, 10, NULL);
     wifi_task();
-    services_camera_init();
-    services_http_init();
+    if (start_server_core() == NULL) {
+        ESP_LOGE(TAG, "Server start failed!");
+    }
+
+    xTaskCreate(&ota_upgrade_task, "ota_upgrade_task", 8192, NULL, 5, NULL);
 
     //TODO, USART task
 
