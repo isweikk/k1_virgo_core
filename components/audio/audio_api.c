@@ -1,15 +1,15 @@
 #include "audio_api.h"
 
-void I2S_Init(i2s_mode_t MODE, i2s_bits_per_sample_t BPS) {
+void I2S_Init(i2s_mode_t mode, i2s_bits_per_sample_t BPS) {
   i2s_config_t i2s_config = {
-    .mode = (i2s_mode_t)(I2S_MODE_MASTER | MODE),
+    .mode = (i2s_mode_t)(I2S_MODE_MASTER | mode),
     .sample_rate = SAMPLE_RATE,
     .bits_per_sample = BPS,
-    .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
+    .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT, //2-channels
     .communication_format = (i2s_comm_format_t)(I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB),
-    .intr_alloc_flags = 0,
-    .dma_buf_count = 16,
-    .dma_buf_len = 60,
+    .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
+    .dma_buf_count = 16,  // number of buffers, 128 max
+    .dma_buf_len = 60,  // size of each buffer
     .use_apll = false
   };
   i2s_pin_config_t pin_config;
@@ -25,7 +25,6 @@ void I2S_Init(i2s_mode_t MODE, i2s_bits_per_sample_t BPS) {
   }
   i2s_driver_install(I2S_NUM_0, &i2s_config, 0, NULL);
   i2s_set_pin(I2S_NUM_0, &pin_config);
-  i2s_set_clk(I2S_NUM_0, SAMPLE_RATE, BPS, I2S_CHANNEL_STEREO);
 }
 
 int I2S_Read(char* data, int numData) {
@@ -69,3 +68,37 @@ void I2S_Write(char* data, int numData) {
 //   file.close();
 //   Serial.println("finish");
 // }
+
+void sound_i2s()
+{
+	int counter=0;
+
+    i2s_config_t i2s_config = {
+        .mode = I2S_MODE_MASTER | I2S_MODE_TX,                                  // Only TX
+        .sample_rate = SAMPLE_RATE,
+        .bits_per_sample = 16,                                                  //16-bit per channel
+        .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,                           //2-channels
+        .communication_format = I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_LSB,
+        .dma_buf_count = 6,
+        .dma_buf_len = 1024,                                                      //
+        .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1                                //Interrupt level 1
+    };
+    i2s_pin_config_t pin_config = {
+        .bck_io_num = 26,
+        .ws_io_num = 25,
+        .data_out_num = 27,
+        .data_in_num = -1                                                       //Not used
+    };
+
+    i2s_driver_install(I2S_NUM, &i2s_config, 0, NULL);
+    i2s_set_pin(I2S_NUM, &pin_config);
+    
+    while(counter < NUM_ELEMENTS)
+    {
+    	i2s_push_sample(I2S_NUM, (char *) &data[counter], portMAX_DELAY);
+    	counter += 2;
+    }
+
+    i2s_driver_uninstall(I2S_NUM);
+    
+}
