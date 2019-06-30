@@ -5,7 +5,7 @@
  * @Email: kkcoding@qq.com
  * @Date: 2019-06-24 11:49:29
  * @LastEditors: Kevin
- * @LastEditTime: 2019-06-27 00:58:44
+ * @LastEditTime: 2019-06-30 02:59:09
  */
 
 #include <stdio.h>
@@ -25,7 +25,7 @@
 //user
 #include "flash_opt.h"
 #include "camera.h"
-#include "my_http_server.h"
+#include "utl_time.h"
 #include "server_html.h"
 #include "bitmap.h"
 #include "general_dev.h"
@@ -140,7 +140,7 @@ static esp_err_t video_get_handler(httpd_req_t *req)
     }
     switch (camera_config->pixel_format) {
     case CAMERA_PF_GRAYSCALE: {
-        if (strcmp(req->uri, "/video/pgm")) {
+        if (strcmp(req->uri, "/video/pgm") == 0) {
             handle_grayscale_pgm(req);
         } else {
             response_err = 1;
@@ -148,9 +148,9 @@ static esp_err_t video_get_handler(httpd_req_t *req)
         break;
     }
     case CAMERA_PF_RGB565: {
-        if (strcmp(req->uri, "/video/bmp")) {
+        if (strcmp(req->uri, "/video/bmp") == 0) {
             handle_rgb_bmp(req);
-        } else if (strcmp(req->uri, "/video/bmp_stream")) {
+        } else if (strcmp(req->uri, "/video/bmp_stream") == 0) {
             handle_rgb_bmp_stream(req);
         } else {
             response_err = 1;
@@ -158,9 +158,9 @@ static esp_err_t video_get_handler(httpd_req_t *req)
         break;
     }
     case CAMERA_PF_JPEG: {
-        if (strcmp(req->uri, "/video/jpg")) {
+        if (strcmp(req->uri, "/video/jpg") == 0) {
             handle_jpg(req);
-        } else if (strcmp(req->uri, "/video/jpg_stream")) {
+        } else if (strcmp(req->uri, "/video/jpg_stream") == 0) {
             handle_jpg_stream(req);
         } else {
             response_err = 1;
@@ -278,13 +278,17 @@ int services_http_deinit(void)
     
     return ESP_OK;
 }
-
+#include <stdio.h>
 static esp_err_t write_frame(httpd_req_t *req)
 {
     char *data = (char*)camera_get_fb();
     size_t size = camera_get_data_size(); 
 
-    return httpd_resp_send_chunk(req, data, size);
+    if (!data) {
+        return ESP_FAIL;
+    }
+    httpd_resp_send_chunk(req, data, size);
+    return ESP_OK;
 }
 
 static void handle_grayscale_pgm(httpd_req_t *req)
@@ -343,9 +347,9 @@ static void handle_jpg(httpd_req_t *req)
         ESP_LOGE(TAG, "Camera capture failed with error = %d", err);
         return;
     }
-
+    ESP_LOGD(TAG, "Start to send jpeg data");
     httpd_resp_set_type(req, "image/jpeg");
-    httpd_resp_set_hdr(req, "Content-disposition", "inline; filename=capture.jpeg");
+    httpd_resp_set_hdr(req, "Content-disposition", "inline; filename=capture.jpg");
     write_frame(req);
     httpd_resp_send_chunk(req, NULL, 0);
     led_close();
@@ -378,19 +382,25 @@ static void handle_rgb_bmp_stream(httpd_req_t *req)
 
 static void handle_jpg_stream(httpd_req_t *req)
 {
+    uint64_t last_time = 0;
     if(get_light_state())
     	led_open();
+    httpd_resp_set_type(req, STREAM_CONTENT_TYPE);
     while (true) {
+        if (get_runtime_ms() - last_time < 50) {
+            delay_ms(5);
+            continue;
+        }
+        last_time = get_runtime_ms();
         esp_err_t err = camera_run();
         if (err != ESP_OK) {
             ESP_LOGD(TAG, "Camera capture failed with error = %d", err);
             return;
         }
-        httpd_resp_set_type(req, "image/jpeg");
         //httpd_resp_set_hdr(req, "Content-disposition", "inline; filename=capture.bmp");
-
+        httpd_resp_set_type(req, "image/jpeg");
         write_frame(req);
-        httpd_resp_send_chunk(req, STREAM_BOUNDARY, strlen(STREAM_BOUNDARY));
+        httpd_resp_sendstr_chunk(req, STREAM_BOUNDARY);
     }
     httpd_resp_send_chunk(req, NULL, 0);
     led_close();

@@ -56,21 +56,38 @@ void monitor_task(void *prm)
 
 void test_audio(void)
 {
-    char buf[800];
-    int len = 0;
+    char buf[1024];
+    int len = 0, tmp=0;
     ESP_LOGI(TAG, "Opening file");
-    FILE* f = fopen("/spiffs/alarm-44100-2ch.wav", "r");
+    FILE* f = fopen("/spiffs/music-44100-2ch.wav", "r");
     if (f == NULL) {
         ESP_LOGE(TAG, "Failed to open file for writing");
         return;
     }
+    fread(buf, 1, 64, f);
+    ESP_LOGD(TAG, "HEAD:%02x,%02x,%02x,%02x", buf[0], buf[1], buf[2], buf[3]);
+    ESP_LOGD(TAG, "end:%02x,%02x,%02x,%02x", buf[36], buf[37], buf[38], buf[39]);
     fseek(f, 0x2c, SEEK_SET);
-    while((len = fread(buf, 1, 800, f)) > 0) {
+    i2s_start(USE_I2S_NUM);
+    while((len = fread(buf, 1, 1024, f)) > 0) {
+        if (tmp++ < 200) {
+            continue;
+        }
         ESP_LOGE(TAG, "len=%d:,%02x,%02x", len, buf[0], buf[1]);
         I2S_Write(buf, len);
 
     }
+    i2s_stop(USE_I2S_NUM);
     fclose(f);
+
+    // extern const unsigned char upload_html_start[] asm("_binary_music-44100-2ch_wav_start");
+    // extern const unsigned char upload_html_end[]   asm("_binary_music-44100-2ch_wav_end");
+    // const size_t upload_html_size = (upload_html_end - upload_html_start);
+    // ESP_LOGE(TAG, "len=%d", upload_html_size);
+    // ESP_LOGD(TAG, "HEAD:%02x,%02x,%02x,%02x", upload_html_start[0], upload_html_start[1], upload_html_start[2], upload_html_start[3]);
+    // ESP_LOGD(TAG, "end:%02x,%02x,%02x,%02x", upload_html_start[36], upload_html_start[37], upload_html_start[38], upload_html_start[39]);
+    // ESP_LOGD(TAG, "start:%02x,%02x,%02x,%02x", upload_html_start[40], upload_html_start[41], upload_html_start[42], upload_html_start[43]);
+    // I2S_Write(&upload_html_start[40], upload_html_size-40);
     ESP_LOGI(TAG, "test audio over");
 }
 void app_main()
@@ -87,24 +104,22 @@ void app_main()
         ESP_ERROR_CHECK(storage_flash_init());
     }
     led_init();
-    // oled_init();
-    // oled_show_str(0,0,  "ESP32 I2C", Font_6x8, 1);
-    // oled_show_str(0,15, "oled example", Font_8x16, 1);
-    // oled_show_str(0,32, "QQ:671139854", Font_6x8, 1);
-    // oled_show_str(0,45, "All On And Clear", Font_7x10,1);
+    oled_init();
+    oled_show_str(0,0,  "ESP32 I2C", Font_6x8, 1);
+    oled_show_str(0,15, "oled example", Font_8x16, 1);
+    oled_show_str(0,32, "QQ:671139854", Font_6x8, 1);
+    oled_show_str(0,45, "All On And Clear", Font_7x10,1);
     // err = xTaskCreate(display_task, "display_task", 2048, NULL, 10, NULL);
     // if (err != pdPASS) {
     //     ESP_LOGE(TAG, "display_task create failed");
     // }
-    ESP_LOGI(TAG, "TEST");
     I2S_Init(I2S_MODE_TX, I2S_BITS_PER_SAMPLE_16BIT);
-    ESP_LOGI(TAG, "TEST");
 
     xTaskCreate(monitor_task, "monitor_task", 2048, NULL, 10, NULL);
-    // wifi_task();
-    // if (start_server_core() == NULL) {
-    //     ESP_LOGE(TAG, "Server start failed!");
-    // }
+    wifi_task();
+    if (start_server_core() == NULL) {
+        ESP_LOGE(TAG, "Server start failed!");
+    }
     test_audio();
     //xTaskCreate(&ota_upgrade_task, "ota_upgrade_task", 8192, NULL, 5, NULL);
 

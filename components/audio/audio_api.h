@@ -6,11 +6,13 @@
 #include "freertos/task.h"
 #include "driver/i2s.h"
 #include "esp_system.h"
+
+#define USE_I2S_NUM  I2S_NUM_1
 #define SAMPLE_RATE (44100)
-#define PIN_I2S_BCLK 2  //sck26
-#define PIN_I2S_LRC 14  //ws22
-#define PIN_I2S_DIN 15  //sd34
-#define PIN_I2S_DOUT 13  //25
+#define PIN_I2S_BCLK 14  //sck26
+#define PIN_I2S_LRC 2  //ws22
+#define PIN_I2S_DIN 13  //sd34
+#define PIN_I2S_DOUT 12  //25
 
 // This I2S specification : 
 //  -   LRC high is channel 2 (right).

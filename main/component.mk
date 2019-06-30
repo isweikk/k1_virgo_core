@@ -8,3 +8,4 @@
 #
 
 COMPONENT_EMBED_FILES += ca_cert.pem
+#COMPONENT_EMBED_FILES += music-44100-2ch.wav

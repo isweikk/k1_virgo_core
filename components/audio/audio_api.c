@@ -2,38 +2,40 @@
 
 void I2S_Init(i2s_mode_t mode, i2s_bits_per_sample_t BPS) {
   i2s_config_t i2s_config = {
-    .mode = (i2s_mode_t)(I2S_MODE_MASTER | mode),
+    .mode = I2S_MODE_MASTER | mode,
     .sample_rate = SAMPLE_RATE,
     .bits_per_sample = BPS,
     .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT, //2-channels
-    .communication_format = (i2s_comm_format_t)(I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB),
+    .communication_format = I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB,
     .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
     .dma_buf_count = 16,  // number of buffers, 128 max
-    .dma_buf_len = 60,  // size of each buffer
+    .dma_buf_len = 64,  // size of each buffer
     .use_apll = false
   };
   i2s_pin_config_t pin_config;
   pin_config.bck_io_num = PIN_I2S_BCLK;
   pin_config.ws_io_num = PIN_I2S_LRC;
-  if (MODE == I2S_MODE_RX) {
+  if (mode == I2S_MODE_RX) {
     pin_config.data_out_num = I2S_PIN_NO_CHANGE;
     pin_config.data_in_num = PIN_I2S_DIN;
   }
-  else if (MODE == I2S_MODE_TX) {
+  else if (mode == I2S_MODE_TX) {
     pin_config.data_out_num = PIN_I2S_DOUT;
     pin_config.data_in_num = I2S_PIN_NO_CHANGE;
   }
-  i2s_driver_install(I2S_NUM_0, &i2s_config, 0, NULL);
-  i2s_set_pin(I2S_NUM_0, &pin_config);
+  i2s_driver_install(USE_I2S_NUM, &i2s_config, 0, NULL);
+  i2s_set_pin(USE_I2S_NUM, &pin_config);
+  i2s_stop(USE_I2S_NUM);
+  i2s_zero_dma_buffer(USE_I2S_NUM);
 }
 
 int I2S_Read(char* data, int numData) {
-  return i2s_read_bytes(I2S_NUM_0, (char *)data, numData, portMAX_DELAY);
+  return i2s_read_bytes(USE_I2S_NUM, (char *)data, numData, portMAX_DELAY);
 }
 
 void I2S_Write(char* data, int numData) {
     size_t tmp = 0;
-      i2s_write(I2S_NUM_0, (const char *)data, numData, &tmp, portMAX_DELAY);
+      i2s_write(USE_I2S_NUM, (const char *)data, numData, &tmp, portMAX_DELAY);
 }
 
 // const int record_time = 60;  // second
@@ -69,36 +71,36 @@ void I2S_Write(char* data, int numData) {
 //   Serial.println("finish");
 // }
 
-void sound_i2s()
-{
-	int counter=0;
+// void sound_i2s()
+// {
+// 	int counter=0;
 
-    i2s_config_t i2s_config = {
-        .mode = I2S_MODE_MASTER | I2S_MODE_TX,                                  // Only TX
-        .sample_rate = SAMPLE_RATE,
-        .bits_per_sample = 16,                                                  //16-bit per channel
-        .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,                           //2-channels
-        .communication_format = I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_LSB,
-        .dma_buf_count = 6,
-        .dma_buf_len = 1024,                                                      //
-        .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1                                //Interrupt level 1
-    };
-    i2s_pin_config_t pin_config = {
-        .bck_io_num = 26,
-        .ws_io_num = 25,
-        .data_out_num = 27,
-        .data_in_num = -1                                                       //Not used
-    };
+//     i2s_config_t i2s_config = {
+//         .mode = I2S_MODE_MASTER | I2S_MODE_TX,                                  // Only TX
+//         .sample_rate = SAMPLE_RATE,
+//         .bits_per_sample = 16,                                                  //16-bit per channel
+//         .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,                           //2-channels
+//         .communication_format = I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_LSB,
+//         .dma_buf_count = 6,
+//         .dma_buf_len = 1024,                                                      //
+//         .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1                                //Interrupt level 1
+//     };
+//     i2s_pin_config_t pin_config = {
+//         .bck_io_num = 26,
+//         .ws_io_num = 25,
+//         .data_out_num = 27,
+//         .data_in_num = -1                                                       //Not used
+//     };
 
-    i2s_driver_install(I2S_NUM, &i2s_config, 0, NULL);
-    i2s_set_pin(I2S_NUM, &pin_config);
+//     i2s_driver_install(I2S_NUM, &i2s_config, 0, NULL);
+//     i2s_set_pin(I2S_NUM, &pin_config);
     
-    while(counter < NUM_ELEMENTS)
-    {
-    	i2s_push_sample(I2S_NUM, (char *) &data[counter], portMAX_DELAY);
-    	counter += 2;
-    }
+//     while(counter < NUM_ELEMENTS)
+//     {
+//     	i2s_push_sample(I2S_NUM, (char *) &data[counter], portMAX_DELAY);
+//     	counter += 2;
+//     }
 
-    i2s_driver_uninstall(I2S_NUM);
+//     i2s_driver_uninstall(I2S_NUM);
     
-}
+// }

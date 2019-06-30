@@ -5,7 +5,7 @@
  * @Email: kkcoding@qq.com
  * @Date: 2019-06-24 21:37:48
  * @LastEditors: Kevin
- * @LastEditTime: 2019-06-26 01:34:42
+ * @LastEditTime: 2019-06-30 18:37:47
  */
 
 
@@ -21,8 +21,8 @@
 #include "fonts.h"
 
 //I2C
-#define I2C_OLED_MASTER_SCL_IO          13               /*!< gpio number for I2C master clock */
-#define I2C_OLED_MASTER_SDA_IO          15               /*!< gpio number for I2C master data  */
+#define I2C_OLED_MASTER_SCL_IO          15               /*!< gpio number for I2C master clock */
+#define I2C_OLED_MASTER_SDA_IO          33               /*!< gpio number for I2C master data  */
 #define I2C_OLED_MASTER_NUM             I2C_NUM_1        /*!< I2C port number for master dev */
 #define WRITE_BIT                       I2C_MASTER_WRITE /*!< I2C master write */
 #define READ_BIT                        I2C_MASTER_READ  /*!< I2C master read */
