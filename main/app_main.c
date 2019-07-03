@@ -106,9 +106,8 @@ void app_main()
     led_init();
     oled_init();
     oled_show_str(0,0,  "ESP32 I2C", Font_6x8, 1);
-    oled_show_str(0,15, "oled example", Font_8x16, 1);
-    oled_show_str(0,32, "QQ:671139854", Font_6x8, 1);
-    oled_show_str(0,45, "All On And Clear", Font_7x10,1);
+    oled_show_str(0,16, "oled example", Font_8x16, 1);
+    oled_show_str(0,32, "oled example", Font_6x8, 1);
     // err = xTaskCreate(display_task, "display_task", 2048, NULL, 10, NULL);
     // if (err != pdPASS) {
     //     ESP_LOGE(TAG, "display_task create failed");
@@ -121,6 +120,7 @@ void app_main()
         ESP_LOGE(TAG, "Server start failed!");
     }
     test_audio();
+    
     //xTaskCreate(&ota_upgrade_task, "ota_upgrade_task", 8192, NULL, 5, NULL);
 
     //TODO, USART task

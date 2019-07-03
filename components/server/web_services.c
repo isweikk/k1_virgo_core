@@ -5,7 +5,7 @@
  * @Email: kkcoding@qq.com
  * @Date: 2019-06-24 11:49:29
  * @LastEditors: Kevin
- * @LastEditTime: 2019-06-30 02:59:09
+ * @LastEditTime: 2019-07-03 02:45:50
  */
 
 #include <stdio.h>
@@ -347,11 +347,12 @@ static void handle_jpg(httpd_req_t *req)
         ESP_LOGE(TAG, "Camera capture failed with error = %d", err);
         return;
     }
-    ESP_LOGD(TAG, "Start to send jpeg data");
+    ESP_LOGI(TAG, "Start to send jpeg data");
     httpd_resp_set_type(req, "image/jpeg");
     httpd_resp_set_hdr(req, "Content-disposition", "inline; filename=capture.jpg");
     write_frame(req);
     httpd_resp_send_chunk(req, NULL, 0);
+    ESP_LOGI(TAG, "Send jpeg data over");
     led_close();
 }
 

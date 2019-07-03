@@ -5,7 +5,7 @@
  * @Email: kkcoding@qq.com
  * @Date: 2019-06-24 21:37:48
  * @LastEditors: Kevin
- * @LastEditTime: 2019-06-26 01:36:39
+ * @LastEditTime: 2019-07-04 01:08:54
  */
 
 // ----------------------------------------------------------------
@@ -143,13 +143,13 @@ void oled_init(void)
     oled_write_cmd(0X20);  //Set Memory Addressing Mode	
     oled_write_cmd(0X10);  //00,Horizontal Addressing Mode;01,Vertical Addressing Mode;10,Page Addressing Mode (RESET);11,Invalid
     oled_write_cmd(0XB0);  //Set Page Start Address for Page Addressing Mode,0-7
-    oled_write_cmd(0XC8);  //Set COM Output Scan Direction
+    oled_write_cmd(0xC0);//oled_write_cmd(0XC8);  //Set COM Output Scan Direction
     oled_write_cmd(0X00);  //---set low column address
     oled_write_cmd(0X10);  //---set high column address
     oled_write_cmd(0X40);  //--set start line address
     oled_write_cmd(0X81);  //--set contrast control register
     oled_write_cmd(0XFF);  //亮度调节 0x00~0xff
-    oled_write_cmd(0XA1);  //--set segment re-map 0 to 127
+    oled_write_cmd(0x01);//oled_write_cmd(0XA1);  //--set segment re-map 0 to 127
     oled_write_cmd(0XA6);  //--set normal display
     oled_write_cmd(0XA8);  //--set multiplex ratio(1 to 64)
     oled_write_cmd(0X3F);  //
