@@ -5,7 +5,7 @@
  * @Email: kkcoding@qq.com
  * @Date: 2019-06-24 21:37:48
  * @LastEditors: Kevin
- * @LastEditTime: 2019-07-04 01:08:54
+ * @LastEditTime: 2019-07-05 02:44:20
  */
 
 // ----------------------------------------------------------------
@@ -279,8 +279,8 @@ void oled_draw_pixel(uint16_t x, uint16_t y, SSD1306_COLOR_t color)
 char oled_show_char(uint16_t x, uint16_t y, char ch, FontDef_t font, SSD1306_COLOR_t color) 
 {
 	uint32_t i, b, j;
-	if (SSD1306_WIDTH <= (x + font.width)
-        || SSD1306_HEIGHT <= (y + font.height)) {
+	if (SSD1306_WIDTH < (x + font.width)
+        || SSD1306_HEIGHT < (y + font.height)) {
 		return 0;
 	}
     oled_goto_cursor(x,y);
@@ -319,7 +319,7 @@ char oled_show_char(uint16_t x, uint16_t y, char ch, FontDef_t font, SSD1306_COL
 /**
  * @brief: 在x，y位置显示字符串 
  * @param[in]   x    显示坐标x 
- * @param[in]   y    显示坐标y 
+ * @param[in]   y    显示坐标y，8的倍数
  * @param[in]   str   要显示的字符串
  * @param[in]   font 显示的字形
  * @param[in]   color 颜色  1显示 0不显示
@@ -342,6 +342,77 @@ char oled_show_str(uint16_t x, uint16_t y, char* str, FontDef_t font, SSD1306_CO
 }
 
 /**
+ * @brief: 在x，y位置显示字符，且是8位对齐方式，即y必须是8的倍数
+ * @param[in]   x    显示坐标x 
+ * @param[in]   y    显示坐标y，8的倍数
+ * @param[in]   str   要显示的字符串
+ * @param[in]   font 显示的字形
+ * @param[in]   color 颜色  1显示 0不显示
+ * @return: 
+ */
+char oled_show_char_align8(uint16_t x, uint16_t y, char ch, FontDef_t font, SSD1306_COLOR_t color) 
+{
+    uint32_t i, b, j, k;
+    uint8_t line_per_char = font.height/8 + ((font.height%8)?1:0);
+	if (SSD1306_WIDTH < (x + font.width)
+        || SSD1306_HEIGHT < (y + font.height)) {
+		return 0;
+	}
+    oled_goto_cursor(x,y);
+
+    //ESP_LOGI("OLED", "LINE=%d", line_per_char);
+    for (i = 0; i < line_per_char; i++) {
+        for (j = 0; j < font.width; j++) {
+            b = font.data[(ch - ' ') * (font.width *line_per_char) + i*font.width + j];
+            for (k = 0; k < 8; k++) {
+                if ((b >> k) & 0x1) {
+                    oled_draw_pixel(oled.cursor_x + j, (oled.cursor_y + i*8 + k), (SSD1306_COLOR_t) color);
+                } else {
+                    oled_draw_pixel(oled.cursor_x + j, (oled.cursor_y + i*8 + k), (SSD1306_COLOR_t)!color);
+                }
+            }
+        }
+    }
+
+	if(true == do_flush) {
+       oled_update_screen(); 
+    }
+	return ch;
+}
+
+/**
+ * @brief: 在第line行，偏移offset个字符的位置显示字符串 
+ * @param[in]   line    第几行，8像素为1行,0 ~ 7
+ * @param[in]   offset  偏移多少个字符，按字体大小
+ * @param[in]   str   要显示的字符串
+ * @param[in]   font 显示的字形
+ * @param[in]   color 颜色  1显示 0不显示
+ * @return: 
+ */
+char oled_show_str_line(uint8_t line, uint8_t offset, char* str, FontDef_t font, SSD1306_COLOR_t color) 
+{
+    uint16_t x, y;
+
+    if ((8*line + font.height) > SSD1306_HEIGHT
+    || font.width * (offset+1) > SSD1306_WIDTH) {
+        return 0;
+    }
+    do_flush = false;
+    y = line * 8;
+    x = offset * font.width;
+	while (*str) {
+		if (oled_show_char_align8(x, y, *str, font, color) != *str) {
+			break;
+		}
+		str++;
+        x += font.width;
+	}
+    do_flush = true;
+    oled_update_screen();
+	return *str;
+}
+
+/**
  * @brief: 
  * @param {type} 
  * @return: 
@@ -352,7 +423,7 @@ void oled_draw_bmp(uint16_t x0, uint16_t y0, uint16_t width, uint16_t height, ui
     uint32_t i, b, j, line = 0, bits = 0;
 	if (SSD1306_WIDTH <= (x0 + width)
         || SSD1306_HEIGHT <= (y0 + height)) {
-		return 0;
+		return;
 	}
     oled_goto_cursor(x0,y0);
     

@@ -105,9 +105,7 @@ void app_main()
     }
     led_init();
     oled_init();
-    oled_show_str(0,0,  "ESP32 I2C", Font_6x8, 1);
-    oled_show_str(0,16, "oled example", Font_8x16, 1);
-    oled_show_str(0,32, "oled example", Font_6x8, 1);
+    oled_show_str_line(2, 0, "  Virgo", Font_16x32, 1);
     // err = xTaskCreate(display_task, "display_task", 2048, NULL, 10, NULL);
     // if (err != pdPASS) {
     //     ESP_LOGE(TAG, "display_task create failed");

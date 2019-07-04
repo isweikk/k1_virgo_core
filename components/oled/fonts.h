@@ -5,7 +5,7 @@
  * @Email: kkcoding@qq.com
  * @Date: 2019-06-24 21:37:48
  * @LastEditors: Kevin
- * @LastEditTime: 2019-06-25 11:49:26
+ * @LastEditTime: 2019-07-05 03:00:20
  */
 
 #ifndef _FONTS_H_
@@ -47,19 +47,29 @@ extern const FontDef_t Font_6x8;
 extern const FontDef_t Font_8x16;
 
 /**
- * @brief  7 x 10 pixels font size structure 
+ * @brief  12 x 24 pixels font size structure 
  */
-extern const FontDef_t Font_7x10;
+extern const FontDef_t Font_12x24;
 
 /**
- * @brief  11 x 18 pixels font size structure 
+ * @brief  16 x 32 pixels font size structure 
  */
-extern const FontDef_t Font_11x18;
+extern const FontDef_t Font_16x32;
 
-/**
- * @brief  16 x 26 pixels font size structure 
- */
-extern const FontDef_t Font_16x26;
+// /**
+//  * @brief  7 x 10 pixels font size structure 
+//  */
+// extern const FontDef_t Font_7x10;
+
+// /**
+//  * @brief  11 x 18 pixels font size structure 
+//  */
+// extern const FontDef_t Font_11x18;
+
+// /**
+//  * @brief  16 x 26 pixels font size structure 
+//  */
+// extern const FontDef_t Font_16x26;
 
 
 /**
