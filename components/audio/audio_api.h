@@ -8,12 +8,14 @@
 #include "esp_system.h"
 
 #define USE_I2S_NUM  I2S_NUM_1
-#define SAMPLE_RATE (44100)
+
 #define PIN_I2S_BCLK 14  //sck26
 #define PIN_I2S_LRC 2  //ws22
 #define PIN_I2S_DIN 13  //sd34
 #define PIN_I2S_DOUT 12  //25
 
+
+#define DEFAULT_SAMPLE_RATE (16000)
 // This I2S specification : 
 //  -   LRC high is channel 2 (right).
 //  -   LRC signal transitions once each word.
@@ -29,17 +31,17 @@
 
 /// @parameter MODE : I2S_MODE_RX or I2S_MODE_TX
 /// @parameter BPS : I2S_BITS_PER_SAMPLE_16BIT or I2S_BITS_PER_SAMPLE_32BIT
-void I2S_Init(i2s_mode_t MODE, i2s_bits_per_sample_t BPS);
+void audio_init(i2s_mode_t MODE, i2s_bits_per_sample_t BPS);
 
-/// I2S_Read() for I2S_MODE_RX
+/// audio_read() for I2S_MODE_RX
 /// @parameter data: pointer to buffer
 /// @parameter numData: buffer size
 /// @return Number of bytes read
-int I2S_Read(char* data, int numData);
+int audio_read(char* data, int numData);
 
-/// I2S_Write() for I2S_MODE_TX
+/// audio_write() for I2S_MODE_TX
 /// @param data: pointer to buffer
 /// @param numData: buffer size
-void I2S_Write(char* data, int numData);
+void audio_write(char* data, int numData);
 
 #endif /*_AUDIO_API_H_ */

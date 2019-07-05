@@ -2,10 +2,10 @@
  * @Descripttion: the driver of oled with iic protocol
  * @version: v1.0.0
  * @Author: Kevin
- * @Email: kkcoding@qq.com
+ * @Email: wkhome90@163.com
  * @Date: 2019-06-24 21:37:48
  * @LastEditors: Kevin
- * @LastEditTime: 2019-07-05 02:44:20
+ * @LastEditTime: 2019-07-05 17:08:39
  */
 
 // ----------------------------------------------------------------
@@ -268,6 +268,143 @@ void oled_draw_pixel(uint16_t x, uint16_t y, SSD1306_COLOR_t color)
 }
 
 /**
+ * @brief: 向显存写入byte
+ * @param[in]   x   坐标
+ * @param[in]   y   坐标
+ * @param[in]   color   色值0/1
+ * @return: 
+ */
+void oled_draw_byte(uint16_t x, uint16_t y, uint8_t data, SSD1306_COLOR_t color) 
+{
+	if (x >= SSD1306_WIDTH || y+8 > SSD1306_HEIGHT) {
+		return;
+	}
+	if (color == SSD1306_COLOR_WHITE) {
+		oled_buffer[x + (y / 8) * SSD1306_WIDTH] = data;
+	} else {
+		oled_buffer[x + (y / 8) * SSD1306_WIDTH] = ~data;
+	}
+}
+
+/**
+ * @brief: draw a line by Bresenham algorithm
+ * @param {type} 
+ * @return: 
+ */
+void oled_draw_line(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, SSD1306_COLOR_t color)
+{
+    int dx,dy,e;
+
+    dx = x1-x0; 
+    dy = y1-y0;
+    
+    if (dx >= 0) {
+        if (dy >= 0) {// dy>=0
+            if (dx >= dy) {// 1/8 octant
+                e = dy-dx/2;
+                while (x0 <= x1) {
+                    oled_draw_pixel(x0, y0, color);
+                    if (e > 0) {
+                        y0 += 1;
+                        e -= dx;
+                    }   
+                    x0 += 1;
+                    e += dy;
+                }
+            } else {// 2/8 octant
+                e = dx - dy/2;
+                while (y0 <= y1) {
+                    oled_draw_pixel(x0, y0, color);
+                    if (e > 0) {
+                        x0 += 1;
+                        e -= dy;
+                    }   
+                    y0 += 1;
+                    e += dx;
+                }
+            }
+        } else {// dy<0
+            dy = -dy;   // dy=abs(dy)
+            if (dx >= dy) {// 8/8 octant
+                e = dy - dx/2;
+                while (x0 <= x1) {
+                    oled_draw_pixel(x0, y0, color);
+                    if (e > 0) {
+                        y0 -= 1;
+                        e -= dx;
+                    }   
+                    x0 += 1;
+                    e += dy;
+                }
+            } else {// 7/8 octant
+                e = dx - dy/2;
+                while (y0 >= y1) {
+                    oled_draw_pixel(x0, y0, color);
+                    if (e > 0) {
+                        x0 += 1;
+                        e -= dy;
+                    }   
+                    y0 -= 1;
+                    e += dx;
+                }
+            }
+        }
+    } else {//dx<0
+        dx = -dx;     //dx=abs(dx)
+        if (dy >= 0) {// dy>=0
+            if (dx >= dy) {// 4/8 octant
+                e = dy - dx/2;
+                while (x0 >= x1) {
+                    oled_draw_pixel(x0, y0, color);
+                    if (e > 0) {
+                        y0 += 1;
+                        e -= dx;
+                    }   
+                    x0 -= 1;
+                    e += dy;
+                }
+            } else {// 3/8 octant
+                e = dx - dy/2;
+                while (y0 <= y1) {
+                    oled_draw_pixel(x0, y0, color);
+                    if (e > 0) {
+                        x0 -= 1;
+                        e -= dy;
+                    }   
+                    y0 += 1;
+                    e += dx;
+                }
+            }
+        } else {// dy<0
+            dy = -dy;   // dy=abs(dy)
+            if (dx >= dy) {// 5/8 octant
+                e = dy - dx/2;
+                while (x0 >= x1) {
+                    oled_draw_pixel(x0, y0, color);
+                    if (e > 0) {
+                        y0 -= 1;
+                        e -= dx;
+                    }   
+                    x0 -= 1;
+                    e += dy;
+                }
+            } else {// 6/8 octant
+                e = dx - dy/2;
+                while (y0 >= y1) {
+                    oled_draw_pixel(x0, y0, color);
+                    if (e > 0) {
+                        x0 -= 1;
+                        e -= dy;
+                    }   
+                    y0 -= 1;
+                    e += dx;
+                }
+            }
+        }   
+    }
+}
+
+/**
  * @brief: 在x，y位置显示字符
  * @param[in]   x    显示坐标x 
  * @param[in]   y    显示坐标y 
@@ -352,25 +489,20 @@ char oled_show_str(uint16_t x, uint16_t y, char* str, FontDef_t font, SSD1306_CO
  */
 char oled_show_char_align8(uint16_t x, uint16_t y, char ch, FontDef_t font, SSD1306_COLOR_t color) 
 {
-    uint32_t i, b, j, k;
-    uint8_t line_per_char = font.height/8 + ((font.height%8)?1:0);
+    uint32_t i, j;
+    uint8_t tmp;
+    uint8_t line_total = font.height/8 + ((font.height%8)?1:0);
 	if (SSD1306_WIDTH < (x + font.width)
         || SSD1306_HEIGHT < (y + font.height)) {
 		return 0;
 	}
     oled_goto_cursor(x,y);
 
-    //ESP_LOGI("OLED", "LINE=%d", line_per_char);
-    for (i = 0; i < line_per_char; i++) {
+    //ESP_LOGI("OLED", "LINE=%d", line_total);
+    for (i = 0; i < line_total; i++) {
         for (j = 0; j < font.width; j++) {
-            b = font.data[(ch - ' ') * (font.width *line_per_char) + i*font.width + j];
-            for (k = 0; k < 8; k++) {
-                if ((b >> k) & 0x1) {
-                    oled_draw_pixel(oled.cursor_x + j, (oled.cursor_y + i*8 + k), (SSD1306_COLOR_t) color);
-                } else {
-                    oled_draw_pixel(oled.cursor_x + j, (oled.cursor_y + i*8 + k), (SSD1306_COLOR_t)!color);
-                }
-            }
+            tmp = font.data[(ch - ' ') * (font.width *line_total) + i*font.width + j];
+            oled_draw_byte(oled.cursor_x + j, oled.cursor_y + i*8, tmp, color);
         }
     }
 
@@ -417,6 +549,48 @@ char oled_show_str_line(uint8_t line, uint8_t offset, char* str, FontDef_t font,
  * @param {type} 
  * @return: 
  */
+void oled_fill_chunk(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, SSD1306_COLOR_t color)
+{ 	
+    //TODO
+    uint32_t i, b, j, line = 0, bits = 0;
+	if (SSD1306_WIDTH <= (x0 + width)
+        || SSD1306_HEIGHT <= (y0 + height)) {
+		return;
+	}
+ 
+    while(height) {
+        if (height < 8) {
+            bits = height;
+            height = 0;
+        } else {
+            bits = 8;
+            height -= 8;
+        }
+        for (i = 0; i < width; i++) {
+            b = bmp[width * line + i];
+            for (j = 0; j < bits; j++) {
+                if ((b >> j) & 0x1) {
+                    oled_draw_pixel(x0 + i, y0 + j, SSD1306_COLOR_WHITE);
+                } else {
+                    oled_draw_pixel(x0 + i, y0 + j, SSD1306_COLOR_BLACK);
+                }
+            }
+        }
+        line++;
+        y0 += 8;
+    }
+}
+
+void oled_fill_chunk_update(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, SSD1306_COLOR_t color)
+{
+    oled_fill_chunk(x0, y0, x1, y1, color);
+    oled_update_screen();
+}
+/**
+ * @brief: 
+ * @param {type} 
+ * @return: 
+ */
 void oled_draw_bmp(uint16_t x0, uint16_t y0, uint16_t width, uint16_t height, uint8_t bmp[])
 { 	
     //TODO
@@ -449,4 +623,4 @@ void oled_draw_bmp(uint16_t x0, uint16_t y0, uint16_t width, uint16_t height, ui
         y0 += 8;
     }
     oled_update_screen();
-} 
+}

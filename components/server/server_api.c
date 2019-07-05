@@ -2,7 +2,7 @@
  * @Descripttion: the entry of the server.
  * @version: v1.0.0
  * @Author: Kevin
- * @Email: kkcoding@qq.com
+ * @Email: wkhome90@163.com
  * @Date: 2019-06-26 16:04:10
  * @LastEditors: Kevin
  * @LastEditTime: 2019-07-03 03:37:53

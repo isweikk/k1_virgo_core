@@ -2,7 +2,7 @@
  * @Descripttion: general API of time.
  * @version: v1.0.0
  * @Author: Kevin
- * @Email: kkcoding@qq.com
+ * @Email: wkhome90@163.com
  * @Date: 2019-06-30 02:39:11
  * @LastEditors: Kevin
  * @LastEditTime: 2019-06-30 02:46:05

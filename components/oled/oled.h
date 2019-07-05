@@ -2,10 +2,10 @@
  * @Descripttion: the driver of oled with iic protocol
  * @version: v1.0.0
  * @Author: Kevin
- * @Email: kkcoding@qq.com
+ * @Email: wkhome90@163.com
  * @Date: 2019-06-24 21:37:48
  * @LastEditors: Kevin
- * @LastEditTime: 2019-07-04 23:51:42
+ * @LastEditTime: 2019-07-05 17:08:52
  */
 
 
@@ -90,11 +90,16 @@ int oled_write_data(uint8_t data);
 void clean_oled_buff(void);
 void oled_update_screen(void);
 int oled_write_lang_data(uint8_t *data, uint16_t len);
-void oled_drawpixel(uint16_t x, uint16_t y, SSD1306_COLOR_t color);
+void oled_draw_pixel(uint16_t x, uint16_t y, SSD1306_COLOR_t color);
+void oled_draw_line(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, SSD1306_COLOR_t color);
+
 void oled_set_cursor(uint16_t x, uint16_t y);
 char oled_show_char(uint16_t x, uint16_t y, char ch, FontDef_t Font, SSD1306_COLOR_t color);
 char oled_show_str(uint16_t x, uint16_t y, char* str, FontDef_t Font, SSD1306_COLOR_t color);
+char oled_show_char_align8(uint16_t x, uint16_t y, char ch, FontDef_t font, SSD1306_COLOR_t color);
 char oled_show_str_line(uint8_t line, uint8_t offset, char* str, FontDef_t font, SSD1306_COLOR_t color);
+void oled_fill_chunk(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, SSD1306_COLOR_t color);
+void oled_fill_chunk_update(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, SSD1306_COLOR_t color);
 void oled_draw_bmp(uint16_t x0, uint16_t y0, uint16_t width, uint16_t height, uint8_t bmp[]);
 
 #endif

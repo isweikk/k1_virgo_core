@@ -29,6 +29,7 @@
 #include "fonts.h"
 // #include "touch.h"
 #include "audio_api.h"
+#include "eye_img.h"
 
 static void display_task(void *prm);
 static esp_err_t event_handler(void *ctx, system_event_t *event);
@@ -74,7 +75,7 @@ void test_audio(void)
             continue;
         }
         ESP_LOGE(TAG, "len=%d:,%02x,%02x", len, buf[0], buf[1]);
-        I2S_Write(buf, len);
+        audio_write(buf, len);
 
     }
     i2s_stop(USE_I2S_NUM);
@@ -87,7 +88,7 @@ void test_audio(void)
     // ESP_LOGD(TAG, "HEAD:%02x,%02x,%02x,%02x", upload_html_start[0], upload_html_start[1], upload_html_start[2], upload_html_start[3]);
     // ESP_LOGD(TAG, "end:%02x,%02x,%02x,%02x", upload_html_start[36], upload_html_start[37], upload_html_start[38], upload_html_start[39]);
     // ESP_LOGD(TAG, "start:%02x,%02x,%02x,%02x", upload_html_start[40], upload_html_start[41], upload_html_start[42], upload_html_start[43]);
-    // I2S_Write(&upload_html_start[40], upload_html_size-40);
+    // audio_write(&upload_html_start[40], upload_html_size-40);
     ESP_LOGI(TAG, "test audio over");
 }
 void app_main()
@@ -103,64 +104,59 @@ void app_main()
     if (storage_flash_init() < 0) {
         ESP_ERROR_CHECK(storage_flash_init());
     }
+    //monitor
+    xTaskCreate(monitor_task, "monitor_task", 2048, NULL, 10, NULL);
+    //led
     led_init();
+    //oled
     oled_init();
     oled_show_str_line(2, 0, "  Virgo", Font_16x32, 1);
-    // err = xTaskCreate(display_task, "display_task", 2048, NULL, 10, NULL);
-    // if (err != pdPASS) {
-    //     ESP_LOGE(TAG, "display_task create failed");
-    // }
-    I2S_Init(I2S_MODE_TX, I2S_BITS_PER_SAMPLE_16BIT);
-
-    xTaskCreate(monitor_task, "monitor_task", 2048, NULL, 10, NULL);
+    err = xTaskCreate(display_task, "display_task", 2048, NULL, 10, NULL);
+    if (err != pdPASS) {
+        ESP_LOGE(TAG, "display_task create failed");
+    }
+    //audio
+    audio_init(I2S_MODE_TX, I2S_BITS_PER_SAMPLE_16BIT);
+    //wifi
     wifi_task();
+    //web services
     if (start_server_core() == NULL) {
         ESP_LOGE(TAG, "Server start failed!");
     }
-    test_audio();
-    
+
     //xTaskCreate(&ota_upgrade_task, "ota_upgrade_task", 8192, NULL, 5, NULL);
 
+    //test
+    test_audio();
+    
     //TODO, USART task
 
-    ESP_LOGI(TAG, "K2 is ready");
+    ESP_LOGI(TAG, "K1 is ready");
 
 }
 
 static void display_task(void *prm)
 {
-    int i = 0;
+    int current_emotion = 0;
 
-    ESP_LOGI("DISP", "TEST display");
-    if (lcd_init() < 0) {
-        ESP_LOGE(TAG, "lcd_init failed!");
-    }
-
-    while(1)
-    {
-        switch(i)
-        {
-            case 0:lcd_clear(RED);lcd_set_back(WHITE);lcd_set_point(BLACK);
-            //lcd_show_string(0,0,40,16,16," red ");
-            break;
-
-            case 1:lcd_clear(GREEN);lcd_set_back(WHITE);lcd_set_point(BLACK);
-            //lcd_show_string(0,0,40,16,16,"green");
-            break;
-
-            case 2:lcd_clear(BLUE);lcd_set_back(WHITE);lcd_set_point(BLACK);
-            //lcd_show_string(0,0,40,16,16," blue");
-            break;
-
-            case 3:lcd_clear(WHITE);lcd_set_back(WHITE);lcd_set_point(BLACK);
-            //lcd_show_string(0,0,40,16,16,"white");
-            break;
+    eye_set_emoiton(EmEmotionWakeUp);
+    while(1) {
+        delay_ms(125);  //8 fps
+        current_emotion = eye_get_emotion();
+        switch(current_emotion) {
+            case EmEmotionSleep:
+                eye_show_sleep();
+                break;
+            case EmEmotionWakeUp:
+                eye_show_wakeup();
+                break;
+            case EmEmotionNictation:
+                eye_show_nictation();
+                break;
+            default:
+                break;
         }
-        i++;
-        if(i >= 3) i = 0;
-        //brushed_motor_forward(MCPWM_UNIT_0, MCPWM_TIMER_0, i*30.0);
-        vTaskDelay(1000 / portTICK_RATE_MS);
-        ESP_LOGI(TAG, "display continue\n");
+        //ESP_LOGI(TAG, "display continue\n");
     } 
 }
 

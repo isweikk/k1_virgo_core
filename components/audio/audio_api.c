@@ -1,41 +1,45 @@
 #include "audio_api.h"
 
-void I2S_Init(i2s_mode_t mode, i2s_bits_per_sample_t BPS) {
-  i2s_config_t i2s_config = {
-    .mode = I2S_MODE_MASTER | mode,
-    .sample_rate = SAMPLE_RATE,
-    .bits_per_sample = BPS,
-    .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT, //2-channels
-    .communication_format = I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB,
-    .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
-    .dma_buf_count = 16,  // number of buffers, 128 max
-    .dma_buf_len = 64,  // size of each buffer
-    .use_apll = false
-  };
-  i2s_pin_config_t pin_config;
-  pin_config.bck_io_num = PIN_I2S_BCLK;
-  pin_config.ws_io_num = PIN_I2S_LRC;
-  if (mode == I2S_MODE_RX) {
-    pin_config.data_out_num = I2S_PIN_NO_CHANGE;
-    pin_config.data_in_num = PIN_I2S_DIN;
-  }
-  else if (mode == I2S_MODE_TX) {
-    pin_config.data_out_num = PIN_I2S_DOUT;
-    pin_config.data_in_num = I2S_PIN_NO_CHANGE;
-  }
-  i2s_driver_install(USE_I2S_NUM, &i2s_config, 0, NULL);
-  i2s_set_pin(USE_I2S_NUM, &pin_config);
-  i2s_stop(USE_I2S_NUM);
-  i2s_zero_dma_buffer(USE_I2S_NUM);
+void audio_init(i2s_mode_t mode, i2s_bits_per_sample_t bps)
+{
+    i2s_config_t i2s_config = {
+        .mode = I2S_MODE_MASTER | mode,
+        .sample_rate = DEFAULT_SAMPLE_RATE,
+        .bits_per_sample = bps,
+        .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT, //2-channels
+        .communication_format = I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB,
+        .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
+        .dma_buf_count = 16,  // number of buffers, 128 max
+        .dma_buf_len = 64,  // size of each buffer
+        .use_apll = false
+    };
+    i2s_pin_config_t pin_config;
+    pin_config.bck_io_num = PIN_I2S_BCLK;
+    pin_config.ws_io_num = PIN_I2S_LRC;
+    if (mode == I2S_MODE_RX) {
+        pin_config.data_out_num = I2S_PIN_NO_CHANGE;
+        pin_config.data_in_num = PIN_I2S_DIN;
+    } else if (mode == I2S_MODE_TX) {
+        pin_config.data_out_num = PIN_I2S_DOUT;
+        pin_config.data_in_num = I2S_PIN_NO_CHANGE;
+    }
+    i2s_driver_install(USE_I2S_NUM, &i2s_config, 0, NULL);
+    i2s_set_pin(USE_I2S_NUM, &pin_config);
+    i2s_zero_dma_buffer(USE_I2S_NUM);
+    i2s_start(USE_I2S_NUM);
 }
 
-int I2S_Read(char* data, int numData) {
-  return i2s_read_bytes(USE_I2S_NUM, (char *)data, numData, portMAX_DELAY);
-}
-
-void I2S_Write(char* data, int numData) {
+int audio_read(char* data, int size)
+{
     size_t tmp = 0;
-      i2s_write(USE_I2S_NUM, (const char *)data, numData, &tmp, portMAX_DELAY);
+    i2s_read(USE_I2S_NUM, (char *)data, size, &tmp, portMAX_DELAY);
+    return tmp;
+}
+
+void audio_write(char* data, int size)
+{
+    size_t tmp = 0;
+    i2s_write(USE_I2S_NUM, (const char *)data, size, &tmp, portMAX_DELAY);
 }
 
 // const int record_time = 60;  // second
@@ -58,9 +62,9 @@ void I2S_Write(char* data, int numData) {
 //   file = SD.open(filename, FILE_WRITE);
 //   if (!file) return;
 //   file.write(header, headerSize);
-//   I2S_Init(I2S_MODE_RX, I2S_BITS_PER_SAMPLE_32BIT);
+//   audio_init(I2S_MODE_RX, I2S_BITS_PER_SAMPLE_32BIT);
 //   for (int j = 0; j < waveDataSize/numPartWavData; ++j) {
-//     I2S_Read(communicationData, numCommunicationData);
+//     audio_read(communicationData, numCommunicationData);
 //     for (int i = 0; i < numCommunicationData/8; ++i) {
 //       partWavData[2*i] = communicationData[8*i + 2];
 //       partWavData[2*i + 1] = communicationData[8*i + 3];
@@ -77,7 +81,7 @@ void I2S_Write(char* data, int numData) {
 
 //     i2s_config_t i2s_config = {
 //         .mode = I2S_MODE_MASTER | I2S_MODE_TX,                                  // Only TX
-//         .sample_rate = SAMPLE_RATE,
+//         .sample_rate = DEFAULT_SAMPLE_RATE,
 //         .bits_per_sample = 16,                                                  //16-bit per channel
 //         .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,                           //2-channels
 //         .communication_format = I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_LSB,
