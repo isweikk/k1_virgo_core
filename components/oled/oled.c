@@ -5,7 +5,7 @@
  * @Email: wkhome90@163.com
  * @Date: 2019-06-24 21:37:48
  * @LastEditors: Kevin
- * @LastEditTime: 2019-07-05 17:08:39
+ * @LastEditTime: 2019-07-06 01:35:17
  */
 
 // ----------------------------------------------------------------
@@ -552,32 +552,21 @@ char oled_show_str_line(uint8_t line, uint8_t offset, char* str, FontDef_t font,
 void oled_fill_chunk(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, SSD1306_COLOR_t color)
 { 	
     //TODO
-    uint32_t i, b, j, line = 0, bits = 0;
-	if (SSD1306_WIDTH <= (x0 + width)
-        || SSD1306_HEIGHT <= (y0 + height)) {
+    uint32_t i, j;
+    uint16_t width, height;
+
+	if (x0 >= SSD1306_WIDTH
+        || y0 >= SSD1306_HEIGHT
+        || x1 >= SSD1306_WIDTH
+        || y1 >= SSD1306_HEIGHT) {
 		return;
 	}
- 
-    while(height) {
-        if (height < 8) {
-            bits = height;
-            height = 0;
-        } else {
-            bits = 8;
-            height -= 8;
+    width = x1 -x0;
+    height = y1 - y0;
+    for (i = 0; i < width; i++) {
+        for (j = 0; j < height; j++) {
+            oled_draw_pixel(x0 + i, y0 + j, color);
         }
-        for (i = 0; i < width; i++) {
-            b = bmp[width * line + i];
-            for (j = 0; j < bits; j++) {
-                if ((b >> j) & 0x1) {
-                    oled_draw_pixel(x0 + i, y0 + j, SSD1306_COLOR_WHITE);
-                } else {
-                    oled_draw_pixel(x0 + i, y0 + j, SSD1306_COLOR_BLACK);
-                }
-            }
-        }
-        line++;
-        y0 += 8;
     }
 }
 

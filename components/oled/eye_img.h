@@ -5,7 +5,7 @@
  * @Email: wkhome90@163.com
  * @Date: 2019-07-05 11:49:20
  * @LastEditors: Kevin
- * @LastEditTime: 2019-07-05 17:49:33
+ * @LastEditTime: 2019-07-06 00:38:04
  */
 
 #ifndef _EYE_IMG_H_
@@ -16,7 +16,7 @@
 enum EyeEmotion{
 	EmEmotionSleep = 0,
 	EmEmotionWakeUp,
-	EmEmotionNIctation,
+	EmEmotionNictation,
 };
 
 void eye_reset(void);

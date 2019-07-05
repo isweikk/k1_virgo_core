@@ -18,6 +18,7 @@
 #include "driver/gpio.h"
 #include "esp_http_client.h"
 //user
+#include "utl_time.h"
 #include "sd_card.h"
 #include "flash_opt.h"
 #include "server_api.h"
@@ -74,7 +75,7 @@ void test_audio(void)
         if (tmp++ < 200) {
             continue;
         }
-        ESP_LOGE(TAG, "len=%d:,%02x,%02x", len, buf[0], buf[1]);
+        //ESP_LOGE(TAG, "len=%d:,%02x,%02x", len, buf[0], buf[1]);
         audio_write(buf, len);
 
     }
@@ -91,6 +92,7 @@ void test_audio(void)
     // audio_write(&upload_html_start[40], upload_html_size-40);
     ESP_LOGI(TAG, "test audio over");
 }
+
 void app_main()
 {
     esp_log_level_set("wifi", ESP_LOG_WARN);
@@ -110,7 +112,6 @@ void app_main()
     led_init();
     //oled
     oled_init();
-    oled_show_str_line(2, 0, "  Virgo", Font_16x32, 1);
     err = xTaskCreate(display_task, "display_task", 2048, NULL, 10, NULL);
     if (err != pdPASS) {
         ESP_LOGE(TAG, "display_task create failed");
@@ -139,7 +140,7 @@ static void display_task(void *prm)
 {
     int current_emotion = 0;
 
-    eye_set_emoiton(EmEmotionWakeUp);
+    eye_set_emotion(EmEmotionWakeUp);
     while(1) {
         delay_ms(125);  //8 fps
         current_emotion = eye_get_emotion();
@@ -148,7 +149,10 @@ static void display_task(void *prm)
                 eye_show_sleep();
                 break;
             case EmEmotionWakeUp:
-                eye_show_wakeup();
+                if (eye_show_wakeup() == 0) {
+                    eye_set_emotion(EmEmotionNictation);
+                    //eye_set_emotion(EmEmotionSleep);
+                }
                 break;
             case EmEmotionNictation:
                 eye_show_nictation();

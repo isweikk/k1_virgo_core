@@ -5,7 +5,7 @@
  * @Email: wkhome90@163.com
  * @Date: 2019-07-05 11:49:20
  * @LastEditors: Kevin
- * @LastEditTime: 2019-07-05 17:44:13
+ * @LastEditTime: 2019-07-06 03:19:26
  */
 
 #include "eye_img.h"
@@ -23,7 +23,7 @@
 // |            |            |
 // ---------------------------
 //when you want to stop a eye animation, you must clear eyes befor a new one.
-static uint8_t eye_reset = true;
+static uint8_t eye_reset_flag = true;
 static int eye_emotion = 0;
 
 /**
@@ -33,7 +33,7 @@ static int eye_emotion = 0;
  */
 void eye_reset(void)
 {
-    eye_reset = true;
+    eye_reset_flag = true;
 }
 
 int eye_get_emotion(void)
@@ -53,33 +53,36 @@ void eye_set_emotion(int emotion)
  */
 int eye_show_sleep(void)
 { 	
-    static uint16_t x0, y0, x1,y1;
-    static uint8_t step;
+    static uint8_t step, delay = 0;
 
-    if (eye_reset) {
-        x0 = 8;
-        y0 = 32;
-        x1 = 56;
-        y1 = 32;
+    if (eye_reset_flag) {
         step = 0;
         oled_clear();
-        eye_reset = false;
+        eye_reset_flag = false;
     }
 
     if (step == 0) {    //clear
         oled_clear();
         step = 1;
     } else if (step == 1) {
-        oled_show_char_align8(32, 48, 'Z', Font_6x8);
-        step = 2;
+        if (++delay%4 == 0) {
+            oled_show_char_align8(48, 48, 'Z', Font_6x8, SSD1306_COLOR_WHITE);
+            step = 2;
+        }
     } else if (step == 2) {
-        oled_show_char_align8(48, 32, 'Z', Font_8x16);
-        step = 3;
+        if (++delay%4 == 0) {
+            oled_show_char_align8(64, 32, 'Z', Font_8x16, SSD1306_COLOR_WHITE);
+            step = 3;
+        }
     } else if (step == 3) {
-        oled_show_char_align8(64, 8, 'Z', Font_12x24);
-        step = 4;
+        if (++delay%4 == 0) {
+            oled_show_char_align8(80, 8, 'Z', Font_12x24, SSD1306_COLOR_WHITE);
+            step = 4;
+        }
     } else if (step == 4) {
         step = 0;   //a period over
+        eye_reset_flag = true;
+        delay = 0;
     }
     oled_update_screen();
     if (step == 0) {
@@ -97,39 +100,42 @@ int eye_show_wakeup(void)
 { 	
     static uint16_t x0, y0, x1,y1;
     static uint8_t step, delay;
+    static char logo[] = "Virgo";
+    static uint8_t count = 0;
 
-    if (eye_reset) {
+    if (eye_reset_flag) {
         x0 = 0;
         y0 = 32;
         step = 0;
         delay = 0;
         oled_clear();
-        eye_reset = false;
+        eye_reset_flag = false;
     }
 
     if (step == 0) {
+        x0 += 8;
         oled_fill_chunk(x0, y0 - 8, x0 + 16, y0 + 8, SSD1306_COLOR_WHITE);
+        x0 += 24;
         step = 1;
     } else if (step == 1) {
-        if (++delay >= 8) {
-            delay = 0;
-            oled_fill_chunk(x0, y0 - 8, x0 + 16, y0 + 8, SSD1306_COLOR_BLACK);
-            x0 += 32;
-            oled_fill_chunk(x0, y0 - 8, x0 + 16, y0 + 8, SSD1306_COLOR_WHITE);
-        }
-        if (x0 >= 64) {
-            step = 2;
-        }
-    } else if (step == 2) {
         ++delay;
-        if (delay >= 12) {
+        if (delay%2 == 0) {
             delay = 0;
-            step = 3;
-        } else if (delay >= 4) {
-            oled_fill_chunk(48, 16, 80, 48, SSD1306_COLOR_WHITE);
+            oled_show_char_align8(x0, y0 - Font_16x32.height/2, logo[count], Font_16x32, SSD1306_COLOR_WHITE);
+            count++;
+            x0 += Font_16x32.width;
+            if (count == strlen(logo)) {
+                count = 0;
+                step = 2;
+            }
         }
-    } else if (step == 3) {
-        step = 0;   //a period over
+        //TODO, 方块增加旋转特效
+    } else if (step == 2) {
+        if (++delay > 4) {
+            step = 0;   //a period over
+            eye_reset_flag = true;
+            delay = 0;
+        }
     }
     oled_update_screen();
     if (step == 0) {
@@ -146,44 +152,54 @@ int eye_show_wakeup(void)
 int eye_show_nictation(void)
 { 	
     static uint16_t x0, y0, x1,y1;
-    static uint8_t step;
+    static uint8_t step = 0, speed = 8, keep = 0;
 
-    if (eye_reset) {
+    if (eye_reset_flag) {
         x0 = 8;
-        y0 = 32;
+        y0 = 16;
         x1 = 56;
-        y1 = 32;
+        y1 = 48;
         step = 0;
+        keep = 0;
         oled_clear();
-        eye_reset = false;
+        eye_reset_flag = false;
     }
 
-    if (step == 0) {    //open eyes
-        y0 -= 2;
-        y1 += 2;
-        //left eye
-        oled_fill_chunk(x0, y0, x1, y0+2, SSD1306_COLOR_WHITE);
-        oled_fill_chunk(x0, y1-2, x1, y1, SSD1306_COLOR_WHITE);
-        //right eye
-        oled_fill_chunk(x0 + 64, y0, x1 + 64, y0+2, SSD1306_COLOR_WHITE);
-        oled_fill_chunk(x0 + 64, y1-2, x1 + 64, y1, SSD1306_COLOR_WHITE);
-        if (y0 == 16) {
-            step = 1;
-        }
-    } else if (step == 1) {
-        step = 2;   //wait a period
-    } else if (step == 2) {
-        y0 += 2;
-        y1 -= 2;
-        oled_fill_chunk(x0, y0-2, x1, y0, SSD1306_COLOR_BLACK);
-        oled_fill_chunk(x0, y1, x1, y1+2, SSD1306_COLOR_BLACK);
-        oled_fill_chunk(x0 + 64, y0-2, x1 + 64, y0, SSD1306_COLOR_BLACK);
-        oled_fill_chunk(x0 + 64, y1, x1 + 64, y1+2, SSD1306_COLOR_BLACK);
+    if (step == 0) {
+        oled_fill_chunk(x0, y0, x1, y1, SSD1306_COLOR_WHITE);
+        oled_fill_chunk(x0+64, y0, x1+64, y1, SSD1306_COLOR_WHITE);
+        step = 1;
+    } else if (step == 1) {    //close eyes
+        y0 += speed;
+        y1 -= speed;
+        oled_fill_chunk(x0, y0-speed, x1, y0, SSD1306_COLOR_BLACK);
+        oled_fill_chunk(x0, y1, x1, y1+speed, SSD1306_COLOR_BLACK);
+        oled_fill_chunk(x0 + 64, y0-speed, x1 + 64, y0, SSD1306_COLOR_BLACK);
+        oled_fill_chunk(x0 + 64, y1, x1 + 64, y1+speed, SSD1306_COLOR_BLACK);
         if (y0 == y1) {
+            step = 2;
+        }
+    } else if (step == 2) {
+        if (++keep > 1) {
+        y0 -= speed;
+        y1 += speed;
+        //left eye
+        oled_fill_chunk(x0, y0, x1, y0+speed, SSD1306_COLOR_WHITE);
+        oled_fill_chunk(x0, y1-speed, x1, y1, SSD1306_COLOR_WHITE);
+        //right eye
+        oled_fill_chunk(x0 + 64, y0, x1 + 64, y0+speed, SSD1306_COLOR_WHITE);
+        oled_fill_chunk(x0 + 64, y1-speed, x1 + 64, y1, SSD1306_COLOR_WHITE);
+        }
+        if (y0 <= 16) {
             step = 3;
+            keep = 0;
         }
     } else if (step == 3) {
-        step = 0;   //a period over
+        if (++keep > 16) {
+            step = 0;   //a period over
+            //eye_reset_flag = true;
+            keep = 0;
+        }
     }
     oled_update_screen();
     if (step == 0) {
