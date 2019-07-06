@@ -2,7 +2,7 @@
  * @Descripttion: the service for ota upgrade
  * @version: v1.0.0
  * @Author: Kevin
- * @Email: wkhome90@163.com
+ * @Email: kkcoding@qq.com
  * @Date: 2019-06-26 10:35:43
  * @LastEditors: Kevin
  * @LastEditTime: 2019-06-26 10:37:30

@@ -2,7 +2,7 @@
  * @Descripttion: the driver of oled with iic protocol
  * @version: v1.0.0
  * @Author: Kevin
- * @Email: wkhome90@163.com
+ * @Email: kkcoding@qq.com
  * @Date: 2019-06-24 21:37:48
  * @LastEditors: Kevin
  * @LastEditTime: 2019-07-06 01:35:17

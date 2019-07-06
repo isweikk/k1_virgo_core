@@ -2,7 +2,7 @@
  * @Descripttion: font library
  * @version: v1.0.0
  * @Author: Kevin
- * @Email: wkhome90@163.com
+ * @Email: kkcoding@qq.com
  * @Date: 2019-06-24 21:37:48
  * @LastEditors: Kevin
  * @LastEditTime: 2019-07-05 03:00:20

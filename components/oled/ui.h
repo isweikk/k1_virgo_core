@@ -2,7 +2,7 @@
  * @Descripttion: UI
  * @version: v1.0.0
  * @Author: Kevin
- * @Email: wkhome90@163.com
+ * @Email: kkcoding@qq.com
  * @Date: 2019-06-23 16:32:34
  * @LastEditors: Kevin
  * @LastEditTime: 2019-06-25 01:59:02

@@ -2,7 +2,7 @@
  * @Descripttion: the API to start server.
  * @version: v1.0.0
  * @Author: Kevin
- * @Email: wkhome90@163.com
+ * @Email: kkcoding@qq.com
  * @Date: 2019-06-26 15:46:20
  * @LastEditors: Kevin
  * @LastEditTime: 2019-06-26 18:52:27

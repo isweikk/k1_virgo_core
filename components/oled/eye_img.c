@@ -2,7 +2,7 @@
  * @Descripttion: the eyes image, draw them by algorithm
  * @version: v1.0.0
  * @Author: Kevin
- * @Email: wkhome90@163.com
+ * @Email: kkcoding@qq.com
  * @Date: 2019-07-05 11:49:20
  * @LastEditors: Kevin
  * @LastEditTime: 2019-07-06 03:19:26
